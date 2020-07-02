@@ -1,0 +1,304 @@
+#!/usr/bin/env bash
+
+script/build
+
+OUTPUT=$(mktemp)
+RESULT=-1
+
+SRC_GIT_DAEMON_PORT=9419
+SRC_GIT_DAEMON_OUTPUT=$(mktemp)
+SRC_GIT_DAEMON_PID=-1
+
+DEST_GIT_DAEMON_PORT=9420
+DEST_GIT_DAEMON_OUTPUT=$(mktemp)
+DEST_GIT_DAEMON_PID=-1
+
+DEST_API_PORT=8081
+DEST_API_OUTPUT=$(mktemp)
+DEST_API_PID=-1
+trap "after_suite" EXIT
+trap "after_suite" SIGINT
+
+function test_pull() {
+  # Pull new repo
+  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache
+  pull --repo-name "org/repo" "pulling new repo"
+  assert_cache_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "pulling new repo org/repo"
+
+  echo "all pull tests passed successfully"
+}
+
+function test_push() {
+  # Push with a new change to master
+  setup_cache "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "pushing new commit to master"
+  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/master to new commit"
+
+  # Push a non-linear change
+  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+
+  push "pushing to an old commit to master"
+  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "updating heads/master to an old commit"
+
+  # Push with no changes to master
+  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  push "pushing no changes to master"
+  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "leaving org/repo:heads/master at existing commit"
+
+  # Push multiple branches
+  setup_cache "org/repo:heads/change:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org/repo:heads/nochange:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/change:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org/repo:heads/nochange:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "pushing multiple branches"
+  assert_dest_sha "org/repo" "heads/change" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/change to new commit"
+  assert_dest_sha "org/repo" "heads/nochange" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "leaving org/repo:heads/nochange at existing commit"
+
+  # Pushing multiple branches and tags
+  setup_cache "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org/repo:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org/repo:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "pushing multiple branches and tags"
+  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/master to new commit"
+  assert_dest_sha "org/repo" "tags/v1" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:tags/v1 to new commit"
+
+  # Pushing multiple repositories
+  setup_cache "org1/repo1:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org1/repo2:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org1/repo2:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org2/repo1:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org1/repo1:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org1/repo2:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org1/repo2:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org2/repo1:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "pushing multiple repositories"
+  assert_dest_sha "org1/repo1" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo1:heads/master to new commit"
+  assert_dest_sha "org1/repo2" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo2:heads/master to new commit"
+  assert_dest_sha "org1/repo2" "tags/v1" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo2:tags/v1 to new commit"
+  assert_dest_sha "org2/repo1" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org2/repo1:tags/v1 to new commit"
+
+  echo "all push tests passed successfully"
+}
+
+function test_sync() {
+  # Sync no change without cached
+  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache
+  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
+  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing no changes without cache"
+
+  # Sync a new commit without cache
+  setup_src "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_cache
+  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
+  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing a new commit without cache"
+
+  # Sync no change with uncached
+  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
+  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing no changes with cache"
+
+  # Sync a new commit with cache
+  setup_src "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
+  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing a new commit with cache"
+
+  # Sync a non-linear change without cache
+  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache
+  setup_dest "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+
+  sync --repo-name "org/repo" "syncing an old commit in an uncached repo"
+  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing heads/master to an old commit without cache"
+
+  # Sync a non-linear change with cache
+  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+
+  sync --repo-name "org/repo" "syncing an old commit in an cached repo"
+  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing heads/master to an old commit with cache"
+
+  # Sync to a different repo
+  setup_src "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_cache
+  setup_dest "org2/repo2:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  sync --repo-name "org/repo:org2/repo2" "syncing org/repo aliased to org2/repo2"
+  assert_dest_sha "org2/repo2" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing org/repo aliased to org2/repo2"
+
+  echo "all sync tests passed successfully"
+}
+
+function before_suite() {
+  set -e
+  $(
+    rm -rf test/tmp
+    mkdir -p test/tmp/dest
+    mkdir -p test/tmp/src
+  ) > /dev/null
+
+  git daemon \
+    --reuseaddr \
+    --verbose \
+    --export-all \
+    --enable=receive-pack \
+    --port="$SRC_GIT_DAEMON_PORT" \
+    --base-path=test/tmp/src &> $SRC_GIT_DAEMON_OUTPUT &
+  SRC_GIT_DAEMON_PID=$!
+
+  git daemon \
+    --reuseaddr \
+    --verbose \
+    --export-all \
+    --enable=receive-pack \
+    --port="$DEST_GIT_DAEMON_PORT" \
+    --base-path=test/tmp/dest &> $DEST_GIT_DAEMON_OUTPUT &
+  DEST_GIT_DAEMON_PID=$!
+
+  go run test/github.go \
+    -p "$DEST_API_PORT" \
+    -git-daemon-url "git://localhost:$DEST_GIT_DAEMON_PORT/" &> $DEST_API_OUTPUT  &
+  DEST_API_PID=$!
+
+  script/build
+
+  until $(curl --output /dev/null --silent --head --fail "http://localhost:$DEST_API_PORT/ping"); do
+    sleep 0.1
+  done
+
+  set +e
+}
+
+function after_suite() {
+  kill "$SRC_GIT_DAEMON_PID" "$DEST_GIT_DAEMON_PID" "$DEST_API_PID"
+}
+
+function setup_src() {
+  rm -rf test/tmp/src
+  mkdir -p test/tmp/src
+
+  for r in "$@"; do
+    local nwo=$(echo $r | cut -d':' -f1)
+    local refname=$(echo $r | cut -d':' -f2)
+    local sha=$(echo $r | cut -d':' -f3)
+
+    local org=$(echo $nwo | cut -d'/' -f1)
+    mkdir -p test/tmp/src/$org && cp -R test/fixtures/repo.git test/tmp/src/$nwo
+    echo "$sha" > "test/tmp/src/$nwo/refs/$refname"
+  done
+}
+
+function setup_cache() {
+  rm -rf test/tmp/cache
+  mkdir -p test/tmp/cache
+
+  for r in "$@"; do
+    local nwo=$(echo $r | cut -d':' -f1)
+    local refname=$(echo $r | cut -d':' -f2)
+    local sha=$(echo $r | cut -d':' -f3)
+    mkdir -p test/tmp/cache/$nwo && cp -R test/fixtures/repo.git test/tmp/cache/$nwo/.git
+    echo "$sha" > "test/tmp/cache/$nwo/.git/refs/$refname"
+  done
+}
+
+function setup_dest() {
+  rm -rf test/tmp/dest
+  mkdir -p test/tmp/dest
+
+  for r in "$@"; do
+    local nwo=$(echo $r | cut -d':' -f1)
+    local refname=$(echo $r | cut -d':' -f2)
+    local sha=$(echo $r | cut -d':' -f3)
+    mkdir -p test/tmp/dest/$nwo && cp -R test/fixtures/repo.git test/tmp/dest/$nwo/.git
+    echo "$sha" > "test/tmp/dest/$nwo/.git/refs/$refname"
+  done
+}
+
+function pull() {
+  bin/actions-sync pull \
+    --cache-dir "test/tmp/cache" \
+    --source-url "git://localhost:$SRC_GIT_DAEMON_PORT" \
+    "$1" "$2" \
+    &> $OUTPUT ||
+    fail $3
+}
+
+function push() {
+  bin/actions-sync push \
+    --cache-dir "test/tmp/cache" \
+    --disable-push-git-auth \
+    --destination-token "token" \
+    --destination-url "http://localhost:$DEST_API_PORT" \
+    &> $OUTPUT ||
+    fail "$1"
+}
+
+function sync() {
+  bin/actions-sync sync \
+    --cache-dir "test/tmp/cache" \
+    --source-url "git://localhost:$SRC_GIT_DAEMON_PORT" \
+    --disable-push-git-auth \
+    --destination-token "token" \
+    --destination-url "http://localhost:$DEST_API_PORT" \
+    "$1" "$2" \
+    &> $OUTPUT ||
+    fail $3
+}
+
+function assert_cache_sha() {
+  nwo=$1
+  ref=$2
+  expected=$3
+  actual=$(cat "test/tmp/cache/$nwo/.git/refs/$ref")
+  [ "$actual" == "$expected" ] || fail "unexpected cache sha \`$expected != $actual\` - \`$nwo\` \`$ref\` - \`$4\`"
+}
+
+function assert_dest_sha() {
+  nwo=$1
+  ref=$2
+  expected=$3
+  actual=$(cat "test/tmp/dest/$nwo/.git/refs/$ref")
+  [ "$actual" == "$expected" ] || fail "unexpected dest sha \`$expected != $actual\` - \`$nwo\` \`$ref\` - \`$4\`"
+}
+
+function fail() {
+  MSG=$1
+  echo "FAIL: Failed $MSG"
+  echo -----output-----
+  cat $OUTPUT
+  echo -----/output-----
+
+  echo -----github git daemon output-----
+  cat $SRC_GIT_DAEMON_OUTPUT
+  echo -----/github git daemon output-----
+
+  echo -----ghes git daemon output-----
+  cat $DEST_GIT_DAEMON_OUTPUT
+  echo -----/ghes git daemon output-----
+
+  echo -----ghes api output-----
+  cat $DEST_API_OUTPUT
+  echo -----/ghes api output-----
+  exit 1
+}
+
+before_suite
+test_pull
+test_push
+test_sync

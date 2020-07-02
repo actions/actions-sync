@@ -1,0 +1,23 @@
+sources:
+  go: true
+
+go:
+  mod: vendor
+
+apps:
+  - source_path: .
+  - source_path: ./src
+
+allowed:
+  - apache-2.0
+  - bsd-2-clause
+  - bsd-3-clause
+  - isc
+  - mit
+  - cc0-1.0
+  - unlicense
+  - other
+
+ignored:
+  go:
+    - golang.org/x/**/*

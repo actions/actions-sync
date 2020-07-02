@@ -1,0 +1,27 @@
+name: licenced
+on:
+  push:
+    paths-ignore:
+      - "docs/**"
+    branches:
+      - "**"
+jobs:
+  licenced:
+    name: Licences Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.14.1
+      - uses: jonabc/setup-licensed@v1
+        with:
+          version: 2.x
+      - uses: jonabc/licensed-ci@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: branch
+        env:
+          GOPRIVATE: "*github.com/github/*"
+          GOPROXY: "direct"
+          GOFLAGS: "-mod=vendor"

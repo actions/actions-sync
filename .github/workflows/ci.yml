@@ -1,0 +1,15 @@
+name: CI
+on:
+  pull_request:
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Lint
+      run: docker-compose run --rm lint
+    - name: Test
+      run: docker-compose run --rm test
+    - name: E2E
+      run: docker-compose run --rm test-build

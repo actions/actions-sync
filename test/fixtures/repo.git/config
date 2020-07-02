@@ -1,0 +1,12 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+[receive]
+  denyCurrentBranch = false
+[remote "origin"]
+	url = git://localhost:9419/org/repo
+	fetch = +refs/heads/*:refs/remotes/origin/*

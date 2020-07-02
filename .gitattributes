@@ -1,0 +1,2 @@
+vendor/** -diff linguist-generated=true
+**/mock_*.go -diff linguist-generated=true

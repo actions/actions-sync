@@ -1,0 +1,7 @@
+FROM golang:1.14
+
+ENV GO111MODULE=on
+WORKDIR /go/src/github.com/actions/actions-sync
+COPY . /go/src/github.com/actions/actions-sync
+
+RUN script/bootstrap

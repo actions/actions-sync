@@ -1,0 +1,5 @@
+.DS_Store
+_tools/bin
+bin
+test/tmp
+dist

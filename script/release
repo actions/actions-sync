@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+
+test -z "${DEBUG:-}" || {
+    set -x
+}
+
+tag=$(date +'%Y%m%d%H%M')
+git commit --allow-empty -m "Release $tag"
+git tag "v${tag}"
+git push --tags
+git push

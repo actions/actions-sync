@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+
+test -z "${DEBUG:-}" || {
+    set -x
+}
+
+tools=$(pwd)/_tools
+export GOBIN="${tools}/bin"
+export GO111MODULE=on
+
+mkdir -p "${GOBIN}"
+cd "${tools}"
+
+if [ ! -f go.mod ]; then
+    go mod init tools
+fi
+
+go get golang.org/x/tools/go/packages@master
+
+if [ ! -f "${GOBIN}/mockgen" ]; then
+    echo "mockgen was not found, installing..."
+    go get github.com/golang/mock/gomock@master
+    go get github.com/golang/mock/mockgen@master
+fi
+
+if [ ! -f "${GOBIN}/golangci-lint" ]; then
+    echo "golangci was not found, installing..."
+    go get github.com/golangci/golangci-lint/cmd/golangci-lint@master
+fi
+
+if [ ! -f "${GOBIN}/goimports" ]; then
+    echo "goimports was not found, installing..."
+    go get golang.org/x/tools/cmd/goimports@master
+fi

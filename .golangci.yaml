@@ -1,0 +1,27 @@
+linters:
+    disable-all: true
+    enable:
+    - deadcode
+    - gocyclo
+    - golint
+    - gofmt
+    - goimports
+    - varcheck
+    - structcheck
+    - errcheck
+    - ineffassign
+    - interfacer
+    - unconvert
+    - goconst
+    - megacheck
+    - goimports
+    - govet
+    - unparam
+run:
+    tests: true
+    skip-files:
+        - ".*_test\\.go$"
+    modules-download-mode: vendor
+issues:
+    exclude:
+        - ".*returns unexported type.*"  

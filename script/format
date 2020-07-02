@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -o nounset
+
+test -z "${DEBUG:-}" || {
+    set -x
+}
+
+module="github.com/actions/actions-sync"
+
+function fmt {
+  gofmt -w -s "${1}"
+  _tools/bin/goimports -l -w "${1}"
+}
+
+files=$(go list ./... 2>/dev/null | grep -v "^${module}\$" | sed -e "s|${module}/|./|" | xargs -I {} find {} -type f -name '*.go')
+
+echo Run go fmt...
+for f in $files; do
+  fmt "${f}" &
+done
+
+wait

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+
+test -z "${DEBUG:-}" || {
+    set -x
+}
+
+go test -cover ./...
