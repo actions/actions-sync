@@ -1,4 +1,4 @@
-project_name: gh
+project_name: actions-sync
 
 builds:
   - <<: &build_defaults
