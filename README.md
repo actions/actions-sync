@@ -1,10 +1,24 @@
-# actions-sync
+# Actions Sync
 
-Sync GitHub Action repositories from https://www.github.com to your GHES instance.
+<p align="center">
+  <img src="docs/arrow.png">
+</p>
 
-## Non air-gapped GHES instances
+Sync GitHub Action repositories from  to your GHES instance.
 
-When there are machines which have access to both the public interenet and the the GHES instance run `actions-sync sync`.
+This tool is a standalone Go tool to allow you to sync from [GitHub](https://www.github.com) to a [GitHub Enterprise instance](https://github.com/enterprise). Referred to as `GHES` throughout this readme.
+
+* Current status: **ready for production use**
+* Download from: [releases page](https://github.com/actions/actions-sync/releases/)
+* Build status: ![Actions Sync Status](https://github.com/actions/actions-sync/workflows/CI/badge.svg)
+
+It is designed to work when:
+* The GitHub Enterprise instance is seperate from the rest of the internet.
+* The GitHub Enterprise instance is connected to the rest of the internet.
+
+## Connected instances
+
+When there are machines which have access to both the public internet and the the GHES instance run `actions-sync sync`.
 
 **Command:**
 
@@ -35,7 +49,7 @@ When there are machines which have access to both the public interenet and the t
     --repo-name actions/setup-node
 ```
 
-## Air-gapped GHES instances
+## Not connected instances
 
 When no machine has access to both the public internet and the GHES instance:
 
