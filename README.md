@@ -18,7 +18,7 @@ It is designed to work when:
 
 ## Connected instances
 
-When there are machines which have access to both the public internet and the the GHES instance run `actions-sync sync`.
+When there are machines which have access to both the public internet and the GHES instance run `actions-sync sync`.
 
 **Command:**
 
