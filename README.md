@@ -4,9 +4,7 @@
   <img src="docs/arrow.png">
 </p>
 
-Sync GitHub Action repositories from  to your GHES instance.
-
-This tool is a standalone Go tool to allow you to sync from [GitHub](https://www.github.com) to a [GitHub Enterprise instance](https://github.com/enterprise). Referred to as `GHES` throughout this readme.
+This is a standalone Go tool to allow you to sync from [GitHub](https://www.github.com) to a [GitHub Enterprise instance](https://github.com/enterprise). GitHub Enterprise is referred to as `GHES` throughout this document.
 
 * Current status: **ready for production use**
 * Download from: [releases page](https://github.com/actions/actions-sync/releases/)
