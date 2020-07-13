@@ -93,7 +93,7 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		HasProjects: github.Bool(false),
 	}
 	ghRepo, resp, err := client.Repositories.Create(ctx, orgName, repo)
-	if resp.StatusCode == 422 {
+	if resp != nil && resp.StatusCode == 422 {
 		ghRepo, _, err = client.Repositories.Get(ctx, orgName, repoName)
 	}
 	if err != nil {
