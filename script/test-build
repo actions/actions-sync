@@ -21,34 +21,34 @@ trap "after_suite" SIGINT
 
 function test_pull() {
   # Pull new repo
-  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_src "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   setup_cache
   pull --repo-name "org/repo" "pulling new repo"
-  assert_cache_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "pulling new repo org/repo"
+  assert_cache_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "pulling new repo org/repo"
 
   echo "all pull tests passed successfully"
 }
 
 function test_push() {
   # Push with a new change to master
-  setup_cache "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
-  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   push "pushing new commit to master"
-  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/master to new commit"
+  assert_dest_sha "org/repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/main to new commit"
 
   # Push a non-linear change
-  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
-  setup_dest "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_cache "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
 
   push "pushing to an old commit to master"
-  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "updating heads/master to an old commit"
+  assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "updating heads/main to an old commit"
 
   # Push with no changes to master
-  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
-  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   push "pushing no changes to master"
-  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "leaving org/repo:heads/master at existing commit"
+  assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "leaving org/repo:heads/main at existing commit"
 
   # Push multiple branches
   setup_cache "org/repo:heads/change:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
@@ -61,86 +61,86 @@ function test_push() {
   assert_dest_sha "org/repo" "heads/nochange" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "leaving org/repo:heads/nochange at existing commit"
 
   # Pushing multiple branches and tags
-  setup_cache "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+  setup_cache "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
               "org/repo:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
-  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+  setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
                "org/repo:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   push "pushing multiple branches and tags"
-  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/master to new commit"
+  assert_dest_sha "org/repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/main to new commit"
   assert_dest_sha "org/repo" "tags/v1" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:tags/v1 to new commit"
 
   # Pushing multiple repositories
-  setup_cache "org1/repo1:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org1/repo2:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+  setup_cache "org1/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org1/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
               "org1/repo2:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org2/repo1:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
-  setup_dest "org1/repo1:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org1/repo2:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+              "org2/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org1/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org1/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
                "org1/repo2:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org2/repo1:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+               "org2/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   push "pushing multiple repositories"
-  assert_dest_sha "org1/repo1" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo1:heads/master to new commit"
-  assert_dest_sha "org1/repo2" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo2:heads/master to new commit"
+  assert_dest_sha "org1/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo1:heads/main to new commit"
+  assert_dest_sha "org1/repo2" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo2:heads/main to new commit"
   assert_dest_sha "org1/repo2" "tags/v1" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo2:tags/v1 to new commit"
-  assert_dest_sha "org2/repo1" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org2/repo1:tags/v1 to new commit"
+  assert_dest_sha "org2/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org2/repo1:tags/v1 to new commit"
 
   echo "all push tests passed successfully"
 }
 
 function test_sync() {
   # Sync no change without cached
-  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_src "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   setup_cache
-  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
-  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing no changes without cache"
+  assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing no changes without cache"
 
   # Sync a new commit without cache
-  setup_src "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_src "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
   setup_cache
-  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
-  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing a new commit without cache"
+  assert_dest_sha "org/repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing a new commit without cache"
 
   # Sync no change with uncached
-  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
-  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
-  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_src "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
-  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing no changes with cache"
+  assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing no changes with cache"
 
   # Sync a new commit with cache
-  setup_src "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
-  setup_cache "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
-  setup_dest "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_src "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_cache "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   sync --repo-name "org/repo" "syncing a new commit in an uncached repo"
-  assert_dest_sha "org/repo" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing a new commit with cache"
+  assert_dest_sha "org/repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing a new commit with cache"
 
   # Sync a non-linear change without cache
-  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_src "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   setup_cache
-  setup_dest "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
 
   sync --repo-name "org/repo" "syncing an old commit in an uncached repo"
-  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing heads/master to an old commit without cache"
+  assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing heads/main to an old commit without cache"
 
   # Sync a non-linear change with cache
-  setup_src "org/repo:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
-  setup_cache "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
-  setup_dest "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_src "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_cache "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
 
   sync --repo-name "org/repo" "syncing an old commit in an cached repo"
-  assert_dest_sha "org/repo" "heads/master" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing heads/master to an old commit with cache"
+  assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "syncing heads/main to an old commit with cache"
 
   # Sync to a different repo
-  setup_src "org/repo:heads/master:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_src "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
   setup_cache
-  setup_dest "org2/repo2:heads/master:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  setup_dest "org2/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   sync --repo-name "org/repo:org2/repo2" "syncing org/repo aliased to org2/repo2"
-  assert_dest_sha "org2/repo2" "heads/master" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing org/repo aliased to org2/repo2"
+  assert_dest_sha "org2/repo2" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing org/repo aliased to org2/repo2"
 
   echo "all sync tests passed successfully"
 }
