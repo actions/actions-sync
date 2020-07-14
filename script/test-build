@@ -30,24 +30,24 @@ function test_pull() {
 }
 
 function test_push() {
-  # Push with a new change to master
+  # Push with a new change to main
   setup_cache "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
   setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
-  push "pushing new commit to master"
+  push "pushing new commit to main"
   assert_dest_sha "org/repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/main to new commit"
 
   # Push a non-linear change
   setup_cache "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   setup_dest "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
 
-  push "pushing to an old commit to master"
+  push "pushing to an old commit to main"
   assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "updating heads/main to an old commit"
 
-  # Push with no changes to master
+  # Push with no changes to main
   setup_cache "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
-  push "pushing no changes to master"
+  push "pushing no changes to main"
   assert_dest_sha "org/repo" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "leaving org/repo:heads/main at existing commit"
 
   # Push multiple branches
