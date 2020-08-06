@@ -86,7 +86,7 @@ var (
 
 func Execute(ctx context.Context) error {
 	rootCmd.PersistentFlags().StringVar(&cacheDir, "cache-dir", "", "Directory containing the repopositories cache created by the `pull` command")
-	_ = rootCmd.MarkFlagRequired("cache-dir")
+	_ = rootCmd.MarkPersistentFlagRequired("cache-dir")
 
 	rootCmd.AddCommand(versionCmd)
 
