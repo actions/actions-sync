@@ -30,10 +30,10 @@ func (f *PushFlags) Init(cmd *cobra.Command) {
 func (f *PushFlags) Validate() Validations {
 	var validations Validations
 	if f.BaseURL == "" {
-		validations = append(validations, "-baseURL must be set")
+		validations = append(validations, "--destination-url must be set")
 	}
 	if f.Token == "" {
-		validations = append(validations, "-token must be set")
+		validations = append(validations, "--destination-token must be set")
 	}
 	return validations
 }
