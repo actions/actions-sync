@@ -34,7 +34,7 @@ func (f *PullFlags) Init(cmd *cobra.Command) {
 func (f *PullFlags) Validate() Validations {
 	var validations Validations
 	if !f.HasAtLeastOneRepoFlag() {
-		validations = append(validations, "one of -repo-name, -repo-name-list, -repo-name-list-file must be set")
+		validations = append(validations, "one of --repo-name, --repo-name-list, --repo-name-list-file must be set")
 	}
 	return validations
 }
