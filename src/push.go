@@ -3,7 +3,7 @@ package src
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/go-git/go-git/v5"
@@ -16,18 +16,32 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type PushFlags struct {
+type PushOnlyFlags struct {
 	BaseURL, Token string
 	DisableGitAuth bool
 }
 
+type PushFlags struct {
+	CommonFlags
+	PushOnlyFlags
+}
+
 func (f *PushFlags) Init(cmd *cobra.Command) {
+	f.CommonFlags.Init(cmd)
+	f.PushOnlyFlags.Init(cmd)
+}
+
+func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.BaseURL, "destination-url", "", "URL of GHES instance")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
 }
 
 func (f *PushFlags) Validate() Validations {
+	return f.CommonFlags.Validate(false).Join(f.PushOnlyFlags.Validate())
+}
+
+func (f *PushOnlyFlags) Validate() Validations {
 	var validations Validations
 	if f.BaseURL == "" {
 		validations = append(validations, "--destination-url must be set")
@@ -38,11 +52,7 @@ func (f *PushFlags) Validate() Validations {
 	return validations
 }
 
-func Push(ctx context.Context, cacheDir string, flags *PushFlags) error {
-	return PushWithGitImpl(ctx, cacheDir, flags, gitImplementation{})
-}
-
-func PushWithGitImpl(ctx context.Context, cacheDir string, flags *PushFlags, gitimpl GitImplementation) error {
+func Push(ctx context.Context, flags *PushFlags) error {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: flags.Token})
 	tc := oauth2.NewClient(ctx, ts)
 	ghClient, err := github.NewEnterpriseClient(flags.BaseURL, flags.BaseURL, tc)
@@ -50,37 +60,57 @@ func PushWithGitImpl(ctx context.Context, cacheDir string, flags *PushFlags, git
 		return errors.Wrap(err, "error creating enterprise client")
 	}
 
-	orgDirs, err := ioutil.ReadDir(cacheDir)
+	repoNames, err := getRepoNamesFromRepoFlags(&flags.CommonFlags)
 	if err != nil {
-		return errors.Wrapf(err, "error opening cache directory `%s`", cacheDir)
+		return err
 	}
-	for _, orgDir := range orgDirs {
-		orgDirPath := path.Join(cacheDir, orgDir.Name())
-		if !orgDir.IsDir() {
-			return errors.Errorf("unexpected file in root of cache directory `%s`", orgDirPath)
-		}
-		repoDirs, err := ioutil.ReadDir(orgDirPath)
+
+	if repoNames == nil {
+		repoNames, err = getRepoNamesFromCacheDir(&flags.CommonFlags)
 		if err != nil {
-			return errors.Wrapf(err, "error opening repository cache directory `%s`", orgDirPath)
-		}
-		for _, repoDir := range repoDirs {
-			repoDirPath := path.Join(orgDirPath, repoDir.Name())
-			nwo := fmt.Sprintf("%s/%s", orgDir.Name(), repoDir.Name())
-			if !orgDir.IsDir() {
-				return errors.Errorf("unexpected file in cache directory `%s`", nwo)
-			}
-			fmt.Printf("syncing `%s`\n", nwo)
-			ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, repoDir.Name(), orgDir.Name())
-			if err != nil {
-				return errors.Wrapf(err, "error creating github repository `%s`", nwo)
-			}
-			err = syncWithCachedRepository(ctx, cacheDir, flags, ghRepo, repoDirPath, gitimpl)
-			if err != nil {
-				return errors.Wrapf(err, "error syncing repository `%s`", nwo)
-			}
-			fmt.Printf("successfully synced `%s`\n", nwo)
+			return err
 		}
 	}
+
+	return PushManyWithGitImpl(ctx, flags, repoNames, ghClient, gitImplementation{})
+}
+
+func PushManyWithGitImpl(ctx context.Context, flags *PushFlags, repoNames []string, ghClient *github.Client, gitimpl GitImplementation) error {
+	for _, repoName := range repoNames {
+		if err := PushWithGitImpl(ctx, flags, repoName, ghClient, gitimpl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghClient *github.Client, gitimpl GitImplementation) error {
+	_, nwo, err := extractSourceDest(repoName)
+	if err != nil {
+		return err
+	}
+
+	ownerName, bareRepoName, err := splitNwo(nwo)
+	if err != nil {
+		return err
+	}
+
+	repoDirPath := path.Join(flags.CacheDir, nwo)
+	_, err = os.Stat(repoDirPath)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("syncing `%s`\n", nwo)
+	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, bareRepoName, ownerName)
+	if err != nil {
+		return errors.Wrapf(err, "error creating github repository `%s`", nwo)
+	}
+	err = syncWithCachedRepository(ctx, flags, ghRepo, repoDirPath, gitimpl)
+	if err != nil {
+		return errors.Wrapf(err, "error syncing repository `%s`", nwo)
+	}
+	fmt.Printf("successfully synced `%s`\n", nwo)
 	return nil
 }
 
@@ -105,10 +135,10 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 	return ghRepo, nil
 }
 
-func syncWithCachedRepository(ctx context.Context, cacheDir string, flags *PushFlags, ghRepo *github.Repository, repoDir string, gitimpl GitImplementation) error {
+func syncWithCachedRepository(ctx context.Context, flags *PushFlags, ghRepo *github.Repository, repoDir string, gitimpl GitImplementation) error {
 	gitRepo, err := gitimpl.NewGitRepository(repoDir)
 	if err != nil {
-		return errors.Wrapf(err, "error opening git repository %s", cacheDir)
+		return errors.Wrapf(err, "error opening git repository %s", flags.CacheDir)
 	}
 	_ = gitRepo.DeleteRemote("ghes")
 	remote, err := gitRepo.CreateRemote(&config.RemoteConfig{

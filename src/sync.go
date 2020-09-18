@@ -7,24 +7,30 @@ import (
 )
 
 type SyncFlags struct {
-	PullFlags
-	PushFlags
+	CommonFlags
+	PullOnlyFlags
+	PushOnlyFlags
 }
 
 func (f *SyncFlags) Init(cmd *cobra.Command) {
-	f.PullFlags.Init(cmd)
-	f.PushFlags.Init(cmd)
+	f.CommonFlags.Init(cmd)
+	f.PullOnlyFlags.Init(cmd)
+	f.PushOnlyFlags.Init(cmd)
 }
 
 func (f *SyncFlags) Validate() Validations {
-	return f.PullFlags.Validate().Join(f.PushFlags.Validate())
+	return f.CommonFlags.Validate(true).Join(f.PullOnlyFlags.Validate().Join(f.PushOnlyFlags.Validate()))
 }
 
-func Sync(ctx context.Context, cacheDir string, flags *SyncFlags) error {
-	if err := Pull(ctx, cacheDir, &flags.PullFlags); err != nil {
+func Sync(ctx context.Context, flags *SyncFlags) error {
+
+	pullFlags := &PullFlags{flags.CommonFlags, flags.PullOnlyFlags}
+	pushFlags := &PushFlags{flags.CommonFlags, flags.PushOnlyFlags}
+
+	if err := Pull(ctx, pullFlags); err != nil {
 		return err
 	}
-	if err := Push(ctx, cacheDir, &flags.PushFlags); err != nil {
+	if err := Push(ctx, pushFlags); err != nil {
 		return err
 	}
 	return nil

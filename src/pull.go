@@ -3,62 +3,49 @@ package src
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
-var (
-	RepoNameRegExp   = regexp.MustCompile(`^[^/]+/\S+$`)
-	ErrEmptyRepoList = errors.New("repo list cannot be empty")
-)
+type PullOnlyFlags struct {
+	SourceURL string
+}
 
 type PullFlags struct {
-	SourceURL, RepoName, RepoNameList, RepoNameListFile string
+	CommonFlags
+	PullOnlyFlags
 }
 
 func (f *PullFlags) Init(cmd *cobra.Command) {
+	f.CommonFlags.Init(cmd)
+	f.PullOnlyFlags.Init(cmd)
+}
+
+func (f *PullOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.SourceURL, "source-url", "https://github.com", "The domain to pull from")
-	cmd.Flags().StringVar(&f.RepoName, "repo-name", "", "Single repository name to pull")
-	cmd.Flags().StringVar(&f.RepoNameList, "repo-name-list", "", "Comma delimited list of repository names to pull")
-	cmd.Flags().StringVar(&f.RepoNameListFile, "repo-name-list-file", "", "Path to file containing a list of repository names to pull")
 }
 
 func (f *PullFlags) Validate() Validations {
+	return f.CommonFlags.Validate(true).Join(f.PullOnlyFlags.Validate())
+}
+
+func (f *PullOnlyFlags) Validate() Validations {
 	var validations Validations
-	if !f.HasAtLeastOneRepoFlag() {
-		validations = append(validations, "one of --repo-name, --repo-name-list, --repo-name-list-file must be set")
-	}
 	return validations
 }
 
-func (f *PullFlags) HasAtLeastOneRepoFlag() bool {
-	return f.RepoName != "" || f.RepoNameList != "" || f.RepoNameListFile != ""
-}
+func Pull(ctx context.Context, flags *PullFlags) error {
+	repoNames, err := getRepoNamesFromRepoFlags(&flags.CommonFlags)
+	if err != nil {
+		return err
+	}
 
-func Pull(ctx context.Context, cacheDir string, flags *PullFlags) error {
-	if flags.RepoNameList != "" {
-		repoNames, err := getRepoNamesFromCSVString(flags.RepoNameList)
-		if err != nil {
-			return err
-		}
-		return PullManyWithGitImpl(ctx, flags.SourceURL, cacheDir, repoNames, gitImplementation{})
-	}
-	if flags.RepoNameListFile != "" {
-		repoNames, err := getRepoNamesFromFile(flags.RepoNameListFile)
-		if err != nil {
-			return err
-		}
-		return PullManyWithGitImpl(ctx, flags.SourceURL, cacheDir, repoNames, gitImplementation{})
-	}
-	return PullWithGitImpl(ctx, flags.SourceURL, cacheDir, flags.RepoName, gitImplementation{})
+	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, repoNames, gitImplementation{})
 }
 
 func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
@@ -71,18 +58,11 @@ func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoNa
 }
 
 func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName string, gitimpl GitImplementation) error {
-	repoNameParts := strings.SplitN(repoName, ":", 2)
-	originRepoName, err := validateRepoName(repoNameParts[0])
+	originRepoName, destRepoName, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
 	}
-	destRepoName := originRepoName
-	if len(repoNameParts) > 1 {
-		destRepoName, err = validateRepoName(repoNameParts[1])
-		if err != nil {
-			return err
-		}
-	}
+
 	_, err = os.Stat(cacheDir)
 	if err != nil {
 		return err
@@ -121,42 +101,4 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName s
 	}
 
 	return nil
-}
-
-func getRepoNamesFromCSVString(csv string) ([]string, error) {
-	repos := filterEmptyEntries(strings.Split(csv, ","))
-	if len(repos) == 0 {
-		return nil, ErrEmptyRepoList
-	}
-	return repos, nil
-}
-
-func getRepoNamesFromFile(file string) ([]string, error) {
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-	repos := filterEmptyEntries(strings.Split(string(data), "\n"))
-	if len(repos) == 0 {
-		return nil, ErrEmptyRepoList
-	}
-	return repos, nil
-}
-
-func filterEmptyEntries(names []string) []string {
-	filtered := []string{}
-	for _, name := range names {
-		if name != "" {
-			filtered = append(filtered, name)
-		}
-	}
-	return filtered
-}
-
-func validateRepoName(name string) (string, error) {
-	s := strings.TrimSpace(name)
-	if RepoNameRegExp.MatchString(s) {
-		return s, nil
-	}
-	return "", fmt.Errorf("`%s` is not a valid repo name", s)
 }
