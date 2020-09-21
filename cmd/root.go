@@ -11,8 +11,7 @@ import (
 )
 
 var (
-	cacheDir string
-	rootCmd  = &cobra.Command{
+	rootCmd = &cobra.Command{
 		Use:   "actions-sync",
 		Short: "GHES Actions Sync",
 		Long:  "Sync Actions from github.com to a GHES instance.",
@@ -22,7 +21,7 @@ var (
 		Use:   "version",
 		Short: "The version of actions-sync in use.",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintln(os.Stdout, "GHES Actions Sync v0.1")
+			fmt.Fprintln(os.Stdout, "GHES Actions Sync v0.2")
 		},
 	}
 
@@ -37,7 +36,7 @@ var (
 				os.Exit(1)
 				return
 			}
-			if err := src.Push(cmd.Context(), cacheDir, pushRepoFlags); err != nil {
+			if err := src.Push(cmd.Context(), pushRepoFlags); err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())
 				os.Exit(1)
 				return
@@ -56,7 +55,7 @@ var (
 				os.Exit(1)
 				return
 			}
-			if err := src.Pull(cmd.Context(), cacheDir, pullRepoFlags); err != nil {
+			if err := src.Pull(cmd.Context(), pullRepoFlags); err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())
 				os.Exit(1)
 				return
@@ -75,7 +74,7 @@ var (
 				os.Exit(1)
 				return
 			}
-			if err := src.Sync(cmd.Context(), cacheDir, syncRepoFlags); err != nil {
+			if err := src.Sync(cmd.Context(), syncRepoFlags); err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())
 				os.Exit(1)
 				return
@@ -85,9 +84,6 @@ var (
 )
 
 func Execute(ctx context.Context) error {
-	rootCmd.PersistentFlags().StringVar(&cacheDir, "cache-dir", "", "Directory containing the repopositories cache created by the `pull` command")
-	_ = rootCmd.MarkPersistentFlagRequired("cache-dir")
-
 	rootCmd.AddCommand(versionCmd)
 
 	rootCmd.AddCommand(pushRepoCmd)

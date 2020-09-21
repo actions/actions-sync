@@ -31,7 +31,7 @@ When there are machines which have access to both the public internet and the GH
 - `destination-token` _(required)_
    A personal access token to authenticate against the GHES instance when uploading repositories.
 - `repo-name` _(optional)_
-   A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an aliase in the format: `upstream_owner/up_streamrepo:destination_owner/destination_repo`
+   A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
    A comma-separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `repo-name-list-file` _(optional)_

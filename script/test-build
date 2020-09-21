@@ -19,6 +19,12 @@ DEST_API_PID=-1
 trap "after_suite" EXIT
 trap "after_suite" SIGINT
 
+function test_version() {
+  version "version shouldn't require any flags"
+
+  echo "all version tests passed"
+}
+
 function test_pull() {
   # Pull new repo
   setup_src "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
@@ -86,6 +92,16 @@ function test_push() {
   assert_dest_sha "org1/repo2" "tags/v1" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo2:tags/v1 to new commit"
   assert_dest_sha "org2/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org2/repo1:tags/v1 to new commit"
 
+  # Honor --repo-name flag, ignore other cache entries
+  setup_cache "org/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push2args --repo-name "org/repo1" "pushing only one of the repos in the cache"
+  assert_dest_sha "org/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo1 passed in repo flag"
+  assert_dest_sha "org/repo2" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "org/repo2 not updated despite cache"
+
   echo "all push tests passed successfully"
 }
 
@@ -141,6 +157,16 @@ function test_sync() {
 
   sync --repo-name "org/repo:org2/repo2" "syncing org/repo aliased to org2/repo2"
   assert_dest_sha "org2/repo2" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "syncing org/repo aliased to org2/repo2"
+
+  # Honor --repo-name flag, ignore other cache entries
+  setup_cache "org/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+              "org/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+               "org/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  sync --repo-name "org/repo1" "syncing only one of the repos in the cache"
+  assert_dest_sha "org/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo1 passed in repo flag"
+  assert_dest_sha "org/repo2" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "org/repo2 not updated despite cache"
 
   echo "all sync tests passed successfully"
 }
@@ -230,6 +256,12 @@ function setup_dest() {
   done
 }
 
+function version() {
+  bin/actions-sync version \
+    &> $OUTPUT ||
+    fail $1
+}
+
 function pull() {
   bin/actions-sync pull \
     --cache-dir "test/tmp/cache" \
@@ -247,6 +279,17 @@ function push() {
     --destination-url "http://localhost:$DEST_API_PORT" \
     &> $OUTPUT ||
     fail "$1"
+}
+
+function push2args() {
+  bin/actions-sync push \
+    --cache-dir "test/tmp/cache" \
+    --disable-push-git-auth \
+    --destination-token "token" \
+    --destination-url "http://localhost:$DEST_API_PORT" \
+    "$1" "$2" \
+    &> $OUTPUT ||
+    fail $3
 }
 
 function sync() {
@@ -298,6 +341,7 @@ function fail() {
   exit 1
 }
 
+test_version
 before_suite
 test_pull
 test_push

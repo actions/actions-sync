@@ -9,5 +9,6 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/cobra v1.0.0
+	github.com/stretchr/testify v1.6.1
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
 )
