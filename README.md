@@ -41,9 +41,9 @@ When there are machines which have access to both the public internet and the GH
 
 ```
   actions-sync sync \
-    --cache-dir "tmp/cache" \
+    --cache-dir "/tmp/cache" \
     --destination-token "token" \
-    --destination-url "www.example.com" \
+    --destination-url "https://www.example.com" \
     --repo-name actions/setup-node
 ```
 
@@ -97,7 +97,7 @@ When no machine has access to both the public internet and the GHES instance:
   bin/actions-sync push \
     --cache-dir "/tmp/cache" \
     --destination-token "token" \
-    --destination-url "http://www.example.com"
+    --destination-url "https://www.example.com"
 ```
 
 

@@ -19,6 +19,18 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {})
+
+	r.HandleFunc("/api/v3/orgs/{org}", func(w http.ResponseWriter, r *http.Request) {
+		orgName := mux.Vars(r)["org"]
+
+		org := github.Organization{Login: &orgName}
+		b, _ := json.Marshal(org)
+		_, err := w.Write(b)
+		if err != nil {
+			panic(err)
+		}
+	})
+
 	r.HandleFunc("/api/v3/orgs/{org}/repos", func(w http.ResponseWriter, r *http.Request) {
 		orgName := mux.Vars(r)["org"]
 		b, err := ioutil.ReadAll(r.Body)
