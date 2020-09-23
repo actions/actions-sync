@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -114,7 +115,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	return nil
 }
 
-func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, orgName string) (*github.Repository, error) {
+func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
 	repo := &github.Repository{
 		Name:        github.String(repoName),
 		HasIssues:   github.Bool(false),
@@ -122,12 +123,37 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		HasPages:    github.Bool(false),
 		HasProjects: github.Bool(false),
 	}
-	ghRepo, resp, err := client.Repositories.Create(ctx, orgName, repo)
-	if resp != nil && resp.StatusCode == 422 {
-		ghRepo, _, err = client.Repositories.Get(ctx, orgName, repoName)
+
+	currentUser, _, err := client.Users.Get(ctx, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "error retrieving authenticated user")
+	}
+	if currentUser == nil || currentUser.Login == nil {
+		return nil, errors.New("error retrieving authenticated user's login name")
+	}
+
+	// check if the owner refers to the authenticated user or an organization.
+	var createRepoOrgName string
+	if strings.EqualFold(*currentUser.Login, ownerName) {
+		// we'll create the repo under the authenticated user's account.
+		createRepoOrgName = ""
+	} else {
+		// ensure the org exists.
+		createRepoOrgName = ownerName
+		_, err := getOrCreateGitHubOrg(ctx, client, ownerName, *currentUser.Login)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	ghRepo, resp, err := client.Repositories.Create(ctx, createRepoOrgName, repo)
+	if err == nil {
+		fmt.Printf("Created repo `%s/%s`\n", ownerName, repoName)
+	} else if resp != nil && resp.StatusCode == 422 {
+		ghRepo, _, err = client.Repositories.Get(ctx, ownerName, repoName)
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating repository")
+		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 	}
 	if ghRepo == nil {
 		return nil, errors.New("error repository is nil")
@@ -135,10 +161,31 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 	return ghRepo, nil
 }
 
+func getOrCreateGitHubOrg(ctx context.Context, client *github.Client, orgName, admin string) (*github.Organization, error) {
+	org := &github.Organization{Login: &orgName}
+
+	var getErr error
+	ghOrg, _, createErr := client.Admin.CreateOrg(ctx, org, admin)
+	if createErr == nil {
+		fmt.Printf("Created organization `%s` (admin: %s)\n", orgName, admin)
+	} else {
+		// Regardless of why create failed, see if we can retrieve the org
+		ghOrg, _, getErr = client.Organizations.Get(ctx, orgName)
+	}
+	if createErr != nil && getErr != nil {
+		return nil, errors.Wrapf(createErr, "error creating organization %s", orgName)
+	}
+	if ghOrg == nil {
+		return nil, errors.New("error organization is nil")
+	}
+
+	return ghOrg, nil
+}
+
 func syncWithCachedRepository(ctx context.Context, flags *PushFlags, ghRepo *github.Repository, repoDir string, gitimpl GitImplementation) error {
 	gitRepo, err := gitimpl.NewGitRepository(repoDir)
 	if err != nil {
-		return errors.Wrapf(err, "error opening git repository %s", flags.CacheDir)
+		return errors.Wrapf(err, "error opening git repository %s", repoDir)
 	}
 	_ = gitRepo.DeleteRemote("ghes")
 	remote, err := gitRepo.CreateRemote(&config.RemoteConfig{

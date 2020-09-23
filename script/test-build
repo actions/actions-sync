@@ -102,6 +102,27 @@ function test_push() {
   assert_dest_sha "org/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo1 passed in repo flag"
   assert_dest_sha "org/repo2" "heads/main" "a5984bb887dd2fcdc2892cd906d6f004844d1142" "org/repo2 not updated despite cache"
 
+  # Push to pre-existing org
+  setup_cache "org-already-exists/new-repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org-already-exists/new-repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "pushing to existing org"
+  assert_dest_sha "org-already-exists/new-repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org-already-exists/new-repo"
+
+  # Push to pre-existing repo
+  setup_cache "org-already-exists/repo-already-exists:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org-already-exists/repo-already-exists:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "pushing to existing repo"
+  assert_dest_sha "org-already-exists/repo-already-exists" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org-already-exists/repo-already-exists"
+
+  # Push to repo in user's account
+  setup_cache "monalisa/new-repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "monalisa/new-repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "pushing to authenticated user's account"
+  assert_dest_sha "monalisa/new-repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating monalisa/new-repo"
+
   echo "all push tests passed successfully"
 }
 

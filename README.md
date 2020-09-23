@@ -29,7 +29,7 @@ When there are machines which have access to both the public internet and the GH
 - `destination-url` _(required)_
    The URL of the GHES instance to sync repositories onto.
 - `destination-token` _(required)_
-   A personal access token to authenticate against the GHES instance when uploading repositories.
+   A personal access token to authenticate against the GHES instance when uploading repositories. See [Destination token scopes](#destination-token-scopes) below.
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
@@ -41,9 +41,9 @@ When there are machines which have access to both the public internet and the GH
 
 ```
   actions-sync sync \
-    --cache-dir "tmp/cache" \
+    --cache-dir "/tmp/cache" \
     --destination-token "token" \
-    --destination-url "www.example.com" \
+    --destination-url "https://www.example.com" \
     --repo-name actions/setup-node
 ```
 
@@ -89,7 +89,9 @@ When no machine has access to both the public internet and the GHES instance:
 - `destination-url` _(required)_
    The URL of the GHES instance to sync repositories onto.
 - `destination-token` _(required)_
-   A personal access token to authenticate against the GHES instance when uploading repositories.
+   A personal access token to authenticate against the GHES instance when uploading repositories. See [Destination token scopes](#destination-token-scopes) below.
+- `repo-name`, `repo-name-list` or `repo-name-list-file` _(optional)_
+   Limit push to specific repositories in the cache directory.
 
 **Example Usage:**
 
@@ -97,9 +99,12 @@ When no machine has access to both the public internet and the GHES instance:
   bin/actions-sync push \
     --cache-dir "/tmp/cache" \
     --destination-token "token" \
-    --destination-url "http://www.example.com"
+    --destination-url "https://www.example.com"
 ```
 
+## Destination token scopes
+
+When creating a personal access token include the `repo` scope. Include the `site_admin` scope (optional) if you want organizations to be created as necessary.
 
 ## Contributing
 
