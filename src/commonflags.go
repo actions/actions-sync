@@ -10,7 +10,7 @@ type CommonFlags struct {
 }
 
 func (f *CommonFlags) Init(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&f.CacheDir, "cache-dir", "", "Directory containing the repopositories cache created by the `pull` command")
+	cmd.Flags().StringVar(&f.CacheDir, "cache-dir", "", "Directory containing the repositories cache created by the `pull` command")
 	_ = cmd.MarkFlagRequired("cache-dir")
 
 	cmd.Flags().StringVar(&f.RepoName, "repo-name", "", "Single repository name to pull")
