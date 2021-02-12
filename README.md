@@ -104,7 +104,7 @@ When no machine has access to both the public internet and the GHES instance:
 
 ## Destination token scopes
 
-When creating a personal access token include the `repo` scope. Include the `site_admin` scope (optional) if you want organizations to be created as necessary.
+When creating a personal access token include the `repo` the `workflow` scope. Include the `site_admin` scope (optional) if you want organizations to be created as necessary.
 
 ## Contributing
 
