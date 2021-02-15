@@ -11,7 +11,7 @@ This is a standalone Go tool to allow you to sync from [GitHub](https://www.gith
 * Build status: ![Actions Sync Status](https://github.com/actions/actions-sync/workflows/CI/badge.svg)
 
 It is designed to work when:
-* The GitHub Enterprise instance is seperate from the rest of the internet.
+* The GitHub Enterprise instance is separate from the rest of the internet.
 * The GitHub Enterprise instance is connected to the rest of the internet.
 
 ## Connected instances
