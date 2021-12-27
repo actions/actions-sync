@@ -103,9 +103,9 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	}
 
 	fmt.Printf("syncing `%s`\n", nwo)
-	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, bareRepoName, ownerName)
+	ghRepo, err := createOrEditGitHubRepo(ctx, ghClient, bareRepoName, ownerName)
 	if err != nil {
-		return errors.Wrapf(err, "error creating github repository `%s`", nwo)
+		return errors.Wrapf(err, "error creating or editing github repository `%s`", nwo)
 	}
 	err = syncWithCachedRepository(ctx, flags, ghRepo, repoDirPath, gitimpl)
 	if err != nil {
@@ -115,7 +115,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	return nil
 }
 
-func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
+func createOrEditGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
 	repo := &github.Repository{
 		Name:        github.String(repoName),
 		HasIssues:   github.Bool(false),
@@ -150,7 +150,7 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 	if err == nil {
 		fmt.Printf("Created repo `%s/%s`\n", ownerName, repoName)
 	} else if resp != nil && resp.StatusCode == 422 {
-		ghRepo, _, err = client.Repositories.Get(ctx, ownerName, repoName)
+		ghRepo, _, err = client.Repositories.Edit(ctx, ownerName, repoName, repo)
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
