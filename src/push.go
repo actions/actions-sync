@@ -86,18 +86,18 @@ func PushManyWithGitImpl(ctx context.Context, flags *PushFlags, repoNames []stri
 }
 
 func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghClient *github.Client, gitimpl GitImplementation) error {
-	org, nwo, err := extractSourceDest(repoName)
+	source, nwo, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
 	}
 
-	orgOwnerName, orgRepoName, err := splitNwo(org)
+	sourceOwnerName, sourceRepoName, err := splitNwo(source)
 	if err != nil {
 		return err
 	}
 
 	githubClient := github.NewClient(nil)
-	orgRepo, _, err := githubClient.Repositories.Get(ctx, orgOwnerName, orgRepoName)
+	sourceRepo, _, err := githubClient.Repositories.Get(ctx, sourceOwnerName, sourceRepoName)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	}
 
 	fmt.Printf("syncing `%s`\n", nwo)
-	ghRepo, err := createOrEditGitHubRepo(ctx, ghClient, bareRepoName, ownerName, orgRepo.GetDescription())
+	ghRepo, err := createOrEditGitHubRepo(ctx, ghClient, bareRepoName, ownerName, sourceRepo.GetDescription())
 	if err != nil {
 		return errors.Wrapf(err, "error creating or editing github repository `%s`", nwo)
 	}
