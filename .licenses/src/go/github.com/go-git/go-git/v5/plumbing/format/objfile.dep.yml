@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/format/objfile
-version: v5.0.0
+version: v5.4.2
 type: go
 summary: Package objfile implements encoding and decoding of object files.
 homepage: https://godoc.org/github.com/go-git/go-git/v5/plumbing/format/objfile
