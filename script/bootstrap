@@ -28,7 +28,7 @@ fi
 
 if [ ! -f "${GOBIN}/golangci-lint" ]; then
     echo "golangci was not found, installing..."
-    go get github.com/golangci/golangci-lint/cmd/golangci-lint@master
+    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.45.2
 fi
 
 if [ ! -f "${GOBIN}/goimports" ]; then
