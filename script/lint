@@ -7,4 +7,4 @@ test -z "${DEBUG:-}" || {
     set -x
 }
 
-_tools/bin/golangci-lint run --config .golangci.yaml
+golangci-lint run --config .golangci.yaml
