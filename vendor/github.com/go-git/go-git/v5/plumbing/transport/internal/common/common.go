@@ -162,17 +162,28 @@ func (c *client) listenFirstError(r io.Reader) chan string {
 	return errLine
 }
 
-// AdvertisedReferences retrieves the advertised references from the server.
 func (s *session) AdvertisedReferences() (*packp.AdvRefs, error) {
+	return s.AdvertisedReferencesContext(context.TODO())
+}
+
+// AdvertisedReferences retrieves the advertised references from the server.
+func (s *session) AdvertisedReferencesContext(ctx context.Context) (*packp.AdvRefs, error) {
 	if s.advRefs != nil {
 		return s.advRefs, nil
 	}
 
 	ar := packp.NewAdvRefs()
-	if err := ar.Decode(s.Stdout); err != nil {
+	if err := ar.Decode(s.StdoutContext(ctx)); err != nil {
 		if err := s.handleAdvRefDecodeError(err); err != nil {
 			return nil, err
 		}
+	}
+
+	// Some servers like jGit, announce capabilities instead of returning an
+	// packp message with a flush. This verifies that we received a empty
+	// adv-refs, even it contains capabilities.
+	if !s.isReceivePack && ar.IsEmpty() {
+		return nil, transport.ErrEmptyRemoteRepository
 	}
 
 	transport.FilterUnsupportedCapabilities(ar.Capabilities)
@@ -222,7 +233,7 @@ func (s *session) handleAdvRefDecodeError(err error) error {
 // UploadPack performs a request to the server to fetch a packfile. A reader is
 // returned with the packfile content. The reader must be closed after reading.
 func (s *session) UploadPack(ctx context.Context, req *packp.UploadPackRequest) (*packp.UploadPackResponse, error) {
-	if req.IsEmpty() {
+	if req.IsEmpty() && len(req.Shallows) == 0 {
 		return nil, transport.ErrEmptyUploadPackRequest
 	}
 
@@ -230,7 +241,7 @@ func (s *session) UploadPack(ctx context.Context, req *packp.UploadPackRequest) 
 		return nil, err
 	}
 
-	if _, err := s.AdvertisedReferences(); err != nil {
+	if _, err := s.AdvertisedReferencesContext(ctx); err != nil {
 		return nil, err
 	}
 

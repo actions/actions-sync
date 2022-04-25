@@ -5,11 +5,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/internal/url"
 	format "github.com/go-git/go-git/v5/plumbing/format/config"
+	"github.com/mitchellh/go-homedir"
 )
 
 const (
@@ -32,6 +38,16 @@ var (
 	ErrRemoteConfigEmptyName = errors.New("remote config: empty name")
 )
 
+// Scope defines the scope of a config file, such as local, global or system.
+type Scope int
+
+// Available ConfigScope's
+const (
+	LocalScope Scope = iota
+	GlobalScope
+	SystemScope
+)
+
 // Config contains the repository configuration
 // https://www.kernel.org/pub/software/scm/git/docs/git-config.html#FILES
 type Config struct {
@@ -46,11 +62,39 @@ type Config struct {
 		CommentChar string
 	}
 
+	User struct {
+		// Name is the personal name of the author and the commiter of a commit.
+		Name string
+		// Email is the email of the author and the commiter of a commit.
+		Email string
+	}
+
+	Author struct {
+		// Name is the personal name of the author of a commit.
+		Name string
+		// Email is the email of the author of a commit.
+		Email string
+	}
+
+	Committer struct {
+		// Name is the personal name of the commiter of a commit.
+		Name string
+		// Email is the email of the  the commiter of a commit.
+		Email string
+	}
+
 	Pack struct {
 		// Window controls the size of the sliding window for delta
 		// compression.  The default is 10.  A value of 0 turns off
 		// delta compression entirely.
 		Window uint
+	}
+
+	Init struct {
+		// DefaultBranch Allows overriding the default branch name
+		// e.g. when initializing a new repository or when cloning
+		// an empty repository.
+		DefaultBranch string
 	}
 
 	// Remotes list of repository remotes, the key of the map is the name
@@ -62,6 +106,9 @@ type Config struct {
 	// Branches list of branches, the key is the branch name and should
 	// equal Branch.Name
 	Branches map[string]*Branch
+	// URLs list of url rewrite rules, if repo url starts with URL.InsteadOf value, it will be replaced with the
+	// key instead.
+	URLs map[string]*URL
 	// Raw contains the raw information of a config file. The main goal is
 	// preserve the parsed information from the original format, to avoid
 	// dropping unsupported fields.
@@ -74,12 +121,84 @@ func NewConfig() *Config {
 		Remotes:    make(map[string]*RemoteConfig),
 		Submodules: make(map[string]*Submodule),
 		Branches:   make(map[string]*Branch),
+		URLs:       make(map[string]*URL),
 		Raw:        format.New(),
 	}
 
 	config.Pack.Window = DefaultPackWindow
 
 	return config
+}
+
+// ReadConfig reads a config file from a io.Reader.
+func ReadConfig(r io.Reader) (*Config, error) {
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := NewConfig()
+	if err = cfg.Unmarshal(b); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// LoadConfig loads a config file from a given scope. The returned Config,
+// contains exclusively information fom the given scope. If couldn't find a
+// config file to the given scope, a empty one is returned.
+func LoadConfig(scope Scope) (*Config, error) {
+	if scope == LocalScope {
+		return nil, fmt.Errorf("LocalScope should be read from the a ConfigStorer.")
+	}
+
+	files, err := Paths(scope)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		f, err := osfs.Default.Open(file)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+
+			return nil, err
+		}
+
+		defer f.Close()
+		return ReadConfig(f)
+	}
+
+	return NewConfig(), nil
+}
+
+// Paths returns the config file location for a given scope.
+func Paths(scope Scope) ([]string, error) {
+	var files []string
+	switch scope {
+	case GlobalScope:
+		xdg := os.Getenv("XDG_CONFIG_HOME")
+		if xdg != "" {
+			files = append(files, filepath.Join(xdg, "git/config"))
+		}
+
+		home, err := homedir.Dir()
+		if err != nil {
+			return nil, err
+		}
+
+		files = append(files,
+			filepath.Join(home, ".gitconfig"),
+			filepath.Join(home, ".config/git/config"),
+		)
+	case SystemScope:
+		files = append(files, "/etc/gitconfig")
+	}
+
+	return files, nil
 }
 
 // Validate validates the fields and sets the default values.
@@ -113,6 +232,11 @@ const (
 	branchSection    = "branch"
 	coreSection      = "core"
 	packSection      = "pack"
+	userSection      = "user"
+	authorSection    = "author"
+	committerSection = "committer"
+	initSection      = "init"
+	urlSection       = "url"
 	fetchKey         = "fetch"
 	urlKey           = "url"
 	bareKey          = "bare"
@@ -121,6 +245,9 @@ const (
 	windowKey        = "window"
 	mergeKey         = "merge"
 	rebaseKey        = "rebase"
+	nameKey          = "name"
+	emailKey         = "email"
+	defaultBranchKey = "defaultBranch"
 
 	// DefaultPackWindow holds the number of previous objects used to
 	// generate deltas. The value 10 is the same used by git command.
@@ -138,12 +265,18 @@ func (c *Config) Unmarshal(b []byte) error {
 	}
 
 	c.unmarshalCore()
+	c.unmarshalUser()
+	c.unmarshalInit()
 	if err := c.unmarshalPack(); err != nil {
 		return err
 	}
 	unmarshalSubmodules(c.Raw, c.Submodules)
 
 	if err := c.unmarshalBranches(); err != nil {
+		return err
+	}
+
+	if err := c.unmarshalURLs(); err != nil {
 		return err
 	}
 
@@ -158,6 +291,20 @@ func (c *Config) unmarshalCore() {
 
 	c.Core.Worktree = s.Options.Get(worktreeKey)
 	c.Core.CommentChar = s.Options.Get(commentCharKey)
+}
+
+func (c *Config) unmarshalUser() {
+	s := c.Raw.Section(userSection)
+	c.User.Name = s.Options.Get(nameKey)
+	c.User.Email = s.Options.Get(emailKey)
+
+	s = c.Raw.Section(authorSection)
+	c.Author.Name = s.Options.Get(nameKey)
+	c.Author.Email = s.Options.Get(emailKey)
+
+	s = c.Raw.Section(committerSection)
+	c.Committer.Name = s.Options.Get(nameKey)
+	c.Committer.Email = s.Options.Get(emailKey)
 }
 
 func (c *Config) unmarshalPack() error {
@@ -184,6 +331,25 @@ func (c *Config) unmarshalRemotes() error {
 		}
 
 		c.Remotes[r.Name] = r
+	}
+
+	// Apply insteadOf url rules
+	for _, r := range c.Remotes {
+		r.applyURLRules(c.URLs)
+	}
+
+	return nil
+}
+
+func (c *Config) unmarshalURLs() error {
+	s := c.Raw.Section(urlSection)
+	for _, sub := range s.Subsections {
+		r := &URL{}
+		if err := r.unmarshal(sub); err != nil {
+			return err
+		}
+
+		c.URLs[r.Name] = r
 	}
 
 	return nil
@@ -217,13 +383,21 @@ func (c *Config) unmarshalBranches() error {
 	return nil
 }
 
+func (c *Config) unmarshalInit() {
+	s := c.Raw.Section(initSection)
+	c.Init.DefaultBranch = s.Options.Get(defaultBranchKey)
+}
+
 // Marshal returns Config encoded as a git-config file.
 func (c *Config) Marshal() ([]byte, error) {
 	c.marshalCore()
+	c.marshalUser()
 	c.marshalPack()
 	c.marshalRemotes()
 	c.marshalSubmodules()
 	c.marshalBranches()
+	c.marshalURLs()
+	c.marshalInit()
 
 	buf := bytes.NewBuffer(nil)
 	if err := format.NewEncoder(buf).Encode(c.Raw); err != nil {
@@ -239,6 +413,35 @@ func (c *Config) marshalCore() {
 
 	if c.Core.Worktree != "" {
 		s.SetOption(worktreeKey, c.Core.Worktree)
+	}
+}
+
+func (c *Config) marshalUser() {
+	s := c.Raw.Section(userSection)
+	if c.User.Name != "" {
+		s.SetOption(nameKey, c.User.Name)
+	}
+
+	if c.User.Email != "" {
+		s.SetOption(emailKey, c.User.Email)
+	}
+
+	s = c.Raw.Section(authorSection)
+	if c.Author.Name != "" {
+		s.SetOption(nameKey, c.Author.Name)
+	}
+
+	if c.Author.Email != "" {
+		s.SetOption(emailKey, c.Author.Email)
+	}
+
+	s = c.Raw.Section(committerSection)
+	if c.Committer.Name != "" {
+		s.SetOption(nameKey, c.Committer.Name)
+	}
+
+	if c.Committer.Email != "" {
+		s.SetOption(emailKey, c.Committer.Email)
 	}
 }
 
@@ -318,6 +521,27 @@ func (c *Config) marshalBranches() {
 	s.Subsections = newSubsections
 }
 
+func (c *Config) marshalURLs() {
+	s := c.Raw.Section(urlSection)
+	s.Subsections = make(format.Subsections, len(c.URLs))
+
+	var i int
+	for _, r := range c.URLs {
+		section := r.marshal()
+		// the submodule section at config is a subset of the .gitmodule file
+		// we should remove the non-valid options for the config file.
+		s.Subsections[i] = section
+		i++
+	}
+}
+
+func (c *Config) marshalInit() {
+	s := c.Raw.Section(initSection)
+	if c.Init.DefaultBranch != "" {
+		s.SetOption(defaultBranchKey, c.Init.DefaultBranch)
+	}
+}
+
 // RemoteConfig contains the configuration for a given remote repository.
 type RemoteConfig struct {
 	// Name of the remote
@@ -325,6 +549,12 @@ type RemoteConfig struct {
 	// URLs the URLs of a remote repository. It must be non-empty. Fetch will
 	// always use the first URL, while push will use all of them.
 	URLs []string
+
+	// insteadOfRulesApplied have urls been modified
+	insteadOfRulesApplied bool
+	// originalURLs are the urls before applying insteadOf rules
+	originalURLs []string
+
 	// Fetch the default set of "refspec" for fetch operation
 	Fetch []RefSpec
 
@@ -385,7 +615,12 @@ func (c *RemoteConfig) marshal() *format.Subsection {
 	if len(c.URLs) == 0 {
 		c.raw.RemoveOption(urlKey)
 	} else {
-		c.raw.SetOption(urlKey, c.URLs...)
+		urls := c.URLs
+		if c.insteadOfRulesApplied {
+			urls = c.originalURLs
+		}
+
+		c.raw.SetOption(urlKey, urls...)
 	}
 
 	if len(c.Fetch) == 0 {
@@ -404,4 +639,21 @@ func (c *RemoteConfig) marshal() *format.Subsection {
 
 func (c *RemoteConfig) IsFirstURLLocal() bool {
 	return url.IsLocalEndpoint(c.URLs[0])
+}
+
+func (c *RemoteConfig) applyURLRules(urlRules map[string]*URL) {
+	// save original urls
+	originalURLs := make([]string, len(c.URLs))
+	copy(originalURLs, c.URLs)
+
+	for i, url := range c.URLs {
+		if matchingURLRule := findLongestInsteadOfMatch(url, urlRules); matchingURLRule != nil {
+			c.URLs[i] = matchingURLRule.ApplyInsteadOf(c.URLs[i])
+			c.insteadOfRulesApplied = true
+		}
+	}
+
+	if c.insteadOfRulesApplied {
+		c.originalURLs = originalURLs
+	}
 }
