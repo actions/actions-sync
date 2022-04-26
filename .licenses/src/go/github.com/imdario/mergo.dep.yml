@@ -1,14 +1,15 @@
 ---
-name: github.com/google/go-github/v31/github
-version: v31.0.0
+name: github.com/imdario/mergo
+version: v0.3.12
 type: go
-summary: Package github provides a client for using the GitHub API.
-homepage: https://godoc.org/github.com/google/go-github/v31/github
+summary: A helper to merge structs and maps in Golang.
+homepage: https://godoc.org/github.com/imdario/mergo
 license: bsd-3-clause
 licenses:
-- sources: v31/LICENSE
+- sources: LICENSE
   text: |
-    Copyright (c) 2013 The go-github AUTHORS. All rights reserved.
+    Copyright (c) 2013 Dario Castañé. All rights reserved.
+    Copyright (c) 2012 The Go Authors. All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions are
@@ -35,4 +36,10 @@ licenses:
     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- sources: README.md
+  text: |-
+    [BSD 3-Clause](http://opensource.org/licenses/BSD-3-Clause) license, as [Go language](http://golang.org/LICENSE).
+
+
+    [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fimdario%2Fmergo.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fimdario%2Fmergo?ref=badge_large)
 notices: []

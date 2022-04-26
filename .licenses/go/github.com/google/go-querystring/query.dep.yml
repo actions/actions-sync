@@ -1,6 +1,6 @@
 ---
 name: github.com/google/go-querystring/query
-version: v1.0.0
+version: v1.1.0
 type: go
 summary: Package query implements encoding of structs into URL query parameters.
 homepage: https://godoc.org/github.com/google/go-querystring/query
