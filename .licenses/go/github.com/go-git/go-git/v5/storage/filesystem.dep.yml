@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/storage/filesystem
-version: v5.0.0
+version: v5.4.2
 type: go
 summary: Package filesystem is a storage backend base on filesystems
 homepage: https://godoc.org/github.com/go-git/go-git/v5/storage/filesystem

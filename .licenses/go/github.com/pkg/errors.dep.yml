@@ -1,6 +1,6 @@
 ---
 name: github.com/pkg/errors
-version: v0.8.1
+version: v0.9.1
 type: go
 summary: Package errors provides simple error handling primitives.
 homepage: https://godoc.org/github.com/pkg/errors

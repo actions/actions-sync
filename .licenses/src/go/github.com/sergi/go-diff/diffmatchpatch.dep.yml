@@ -1,6 +1,6 @@
 ---
 name: github.com/sergi/go-diff/diffmatchpatch
-version: v1.1.0
+version: v1.2.0
 type: go
 summary: Package diffmatchpatch offers robust algorithms to perform the operations
   required for synchronizing plain text.

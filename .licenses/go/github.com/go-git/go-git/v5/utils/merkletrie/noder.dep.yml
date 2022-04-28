@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/utils/merkletrie/noder
-version: v5.0.0
+version: v5.4.2
 type: go
 summary: Package noder provide an interface for defining nodes in a merkletrie, their
   hashes and their paths (a noders and its ancestors).

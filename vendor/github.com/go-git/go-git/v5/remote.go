@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/config"
@@ -29,7 +30,21 @@ var (
 	NoErrAlreadyUpToDate     = errors.New("already up-to-date")
 	ErrDeleteRefNotSupported = errors.New("server does not support delete-refs")
 	ErrForceNeeded           = errors.New("some refs were not updated")
+	ErrExactSHA1NotSupported = errors.New("server does not support exact SHA1 refspec")
 )
+
+type NoMatchingRefSpecError struct {
+	refSpec config.RefSpec
+}
+
+func (e NoMatchingRefSpecError) Error() string {
+	return fmt.Sprintf("couldn't find remote ref %q", e.refSpec.Src())
+}
+
+func (e NoMatchingRefSpecError) Is(target error) bool {
+	_, ok := target.(NoMatchingRefSpecError)
+	return ok
+}
 
 const (
 	// This describes the maximum number of commits to walk when
@@ -77,7 +92,7 @@ func (r *Remote) Push(o *PushOptions) error {
 // the remote was already up-to-date.
 //
 // The provided Context must be non-nil. If the context expires before the
-// operation is complete, an error is returned. The context only affects to the
+// operation is complete, an error is returned. The context only affects the
 // transport operations.
 func (r *Remote) PushContext(ctx context.Context, o *PushOptions) (err error) {
 	if err := o.Validate(); err != nil {
@@ -88,20 +103,24 @@ func (r *Remote) PushContext(ctx context.Context, o *PushOptions) (err error) {
 		return fmt.Errorf("remote names don't match: %s != %s", o.RemoteName, r.c.Name)
 	}
 
-	s, err := newSendPackSession(r.c.URLs[0], o.Auth)
+	s, err := newSendPackSession(r.c.URLs[0], o.Auth, o.InsecureSkipTLS, o.CABundle)
 	if err != nil {
 		return err
 	}
 
 	defer ioutil.CheckClose(s, &err)
 
-	ar, err := s.AdvertisedReferences()
+	ar, err := s.AdvertisedReferencesContext(ctx)
 	if err != nil {
 		return err
 	}
 
 	remoteRefs, err := ar.AllReferences()
 	if err != nil {
+		return err
+	}
+
+	if err := r.checkRequireRemoteRefs(o.RequireRemoteRefs, remoteRefs); err != nil {
 		return err
 	}
 
@@ -120,6 +139,15 @@ func (r *Remote) PushContext(ctx context.Context, o *PushOptions) (err error) {
 
 	if isDelete && !ar.Capabilities.Supports(capability.DeleteRefs) {
 		return ErrDeleteRefNotSupported
+	}
+
+	if o.Force {
+		for i := 0; i < len(o.RefSpecs); i++ {
+			rs := &o.RefSpecs[i]
+			if !rs.IsForceUpdate() && !rs.IsDelete() {
+				o.RefSpecs[i] = config.RefSpec("+" + rs.String())
+			}
+		}
 	}
 
 	localRefs, err := r.references()
@@ -208,9 +236,9 @@ func (r *Remote) newReferenceUpdateRequest(
 	if o.Progress != nil {
 		req.Progress = o.Progress
 		if ar.Capabilities.Supports(capability.Sideband64k) {
-			req.Capabilities.Set(capability.Sideband64k)
+			_ = req.Capabilities.Set(capability.Sideband64k)
 		} else if ar.Capabilities.Supports(capability.Sideband) {
-			req.Capabilities.Set(capability.Sideband)
+			_ = req.Capabilities.Set(capability.Sideband)
 		}
 	}
 
@@ -257,7 +285,7 @@ func (r *Remote) updateRemoteReferenceStorage(
 // no changes to be fetched, or an error.
 //
 // The provided Context must be non-nil. If the context expires before the
-// operation is complete, an error is returned. The context only affects to the
+// operation is complete, an error is returned. The context only affects the
 // transport operations.
 func (r *Remote) FetchContext(ctx context.Context, o *FetchOptions) error {
 	_, err := r.fetch(ctx, o)
@@ -286,20 +314,24 @@ func (r *Remote) fetch(ctx context.Context, o *FetchOptions) (sto storer.Referen
 		o.RefSpecs = r.c.Fetch
 	}
 
-	s, err := newUploadPackSession(r.c.URLs[0], o.Auth)
+	s, err := newUploadPackSession(r.c.URLs[0], o.Auth, o.InsecureSkipTLS, o.CABundle)
 	if err != nil {
 		return nil, err
 	}
 
 	defer ioutil.CheckClose(s, &err)
 
-	ar, err := s.AdvertisedReferences()
+	ar, err := s.AdvertisedReferencesContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	req, err := r.newUploadPackRequest(o, ar)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := r.isSupportedRefSpec(o.RefSpecs, ar); err != nil {
 		return nil, err
 	}
 
@@ -316,6 +348,13 @@ func (r *Remote) fetch(ctx context.Context, o *FetchOptions) (sto storer.Referen
 	refs, err := calculateRefs(o.RefSpecs, remoteRefs, o.Tags)
 	if err != nil {
 		return nil, err
+	}
+
+	if !req.Depth.IsZero() {
+		req.Shallows, err = r.s.Shallow()
+		if err != nil {
+			return nil, fmt.Errorf("existing checkout is not shallow")
+		}
 	}
 
 	req.Wants, err = getWants(r.s, refs)
@@ -336,14 +375,44 @@ func (r *Remote) fetch(ctx context.Context, o *FetchOptions) (sto storer.Referen
 	}
 
 	if !updated {
+		updated, err = depthChanged(req.Shallows, r.s)
+		if err != nil {
+			return nil, fmt.Errorf("error checking depth change: %v", err)
+		}
+	}
+
+	if !updated {
 		return remoteRefs, NoErrAlreadyUpToDate
 	}
 
 	return remoteRefs, nil
 }
 
-func newUploadPackSession(url string, auth transport.AuthMethod) (transport.UploadPackSession, error) {
-	c, ep, err := newClient(url)
+func depthChanged(before []plumbing.Hash, s storage.Storer) (bool, error) {
+	after, err := s.Shallow()
+	if err != nil {
+		return false, err
+	}
+
+	if len(before) != len(after) {
+		return true, nil
+	}
+
+	bm := make(map[plumbing.Hash]bool, len(before))
+	for _, b := range before {
+		bm[b] = true
+	}
+	for _, a := range after {
+		if _, ok := bm[a]; !ok {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func newUploadPackSession(url string, auth transport.AuthMethod, insecure bool, cabundle []byte) (transport.UploadPackSession, error) {
+	c, ep, err := newClient(url, auth, insecure, cabundle)
 	if err != nil {
 		return nil, err
 	}
@@ -351,8 +420,8 @@ func newUploadPackSession(url string, auth transport.AuthMethod) (transport.Uplo
 	return c.NewUploadPackSession(ep, auth)
 }
 
-func newSendPackSession(url string, auth transport.AuthMethod) (transport.ReceivePackSession, error) {
-	c, ep, err := newClient(url)
+func newSendPackSession(url string, auth transport.AuthMethod, insecure bool, cabundle []byte) (transport.ReceivePackSession, error) {
+	c, ep, err := newClient(url, auth, insecure, cabundle)
 	if err != nil {
 		return nil, err
 	}
@@ -360,11 +429,13 @@ func newSendPackSession(url string, auth transport.AuthMethod) (transport.Receiv
 	return c.NewReceivePackSession(ep, auth)
 }
 
-func newClient(url string) (transport.Transport, *transport.Endpoint, error) {
+func newClient(url string, auth transport.AuthMethod, insecure bool, cabundle []byte) (transport.Transport, *transport.Endpoint, error) {
 	ep, err := transport.NewEndpoint(url)
 	if err != nil {
 		return nil, nil, err
 	}
+	ep.InsecureSkipTLS = insecure
+	ep.CaBundle = cabundle
 
 	c, err := client.NewClient(ep)
 	if err != nil {
@@ -484,10 +555,8 @@ func (r *Remote) deleteReferences(rs config.RefSpec,
 			if _, ok := refsDict[rs.Dst(ref.Name()).String()]; ok {
 				return nil
 			}
-		} else {
-			if rs.Dst("") != ref.Name() {
-				return nil
-			}
+		} else if rs.Dst("") != ref.Name() {
+			return nil
 		}
 
 		cmd := &packp.Command{
@@ -546,6 +615,7 @@ func (r *Remote) addReferenceIfRefSpecMatches(rs config.RefSpec,
 
 func (r *Remote) references() ([]*plumbing.Reference, error) {
 	var localRefs []*plumbing.Reference
+
 	iter, err := r.s.IterReferences()
 	if err != nil {
 		return nil, err
@@ -701,6 +771,11 @@ func doCalculateRefs(
 		return err
 	}
 
+	if s.IsExactSHA1() {
+		ref := plumbing.NewHashReference(s.Dst(""), plumbing.NewHash(s.Src()))
+		return refs.SetReference(ref)
+	}
+
 	var matched bool
 	err = iter.ForEach(func(ref *plumbing.Reference) error {
 		if !s.Match(ref.Name()) {
@@ -733,13 +808,18 @@ func doCalculateRefs(
 	})
 
 	if !matched && !s.IsWildcard() {
-		return fmt.Errorf("couldn't find remote ref %q", s.Src())
+		return NoMatchingRefSpecError{refSpec: s}
 	}
 
 	return err
 }
 
 func getWants(localStorer storage.Storer, refs memory.ReferenceStorage) ([]plumbing.Hash, error) {
+	shallow := false
+	if s, _ := localStorer.Shallow(); len(s) > 0 {
+		shallow = true
+	}
+
 	wants := map[plumbing.Hash]bool{}
 	for _, ref := range refs {
 		hash := ref.Hash()
@@ -748,7 +828,7 @@ func getWants(localStorer storage.Storer, refs memory.ReferenceStorage) ([]plumb
 			return nil, err
 		}
 
-		if !exists {
+		if !exists || shallow {
 			wants[hash] = true
 		}
 	}
@@ -850,6 +930,26 @@ func (r *Remote) newUploadPackRequest(o *FetchOptions,
 	return req, nil
 }
 
+func (r *Remote) isSupportedRefSpec(refs []config.RefSpec, ar *packp.AdvRefs) error {
+	var containsIsExact bool
+	for _, ref := range refs {
+		if ref.IsExactSHA1() {
+			containsIsExact = true
+		}
+	}
+
+	if !containsIsExact {
+		return nil
+	}
+
+	if ar.Capabilities.Supports(capability.AllowReachableSHA1InWant) ||
+		ar.Capabilities.Supports(capability.AllowTipSHA1InWant) {
+		return nil
+	}
+
+	return ErrExactSHA1NotSupported
+}
+
 func buildSidebandIfSupported(l *capability.List, reader io.Reader, p sideband.Progress) io.Reader {
 	var t sideband.Type
 
@@ -883,7 +983,7 @@ func (r *Remote) updateLocalReferenceStorage(
 		}
 
 		for _, ref := range fetchedRefs {
-			if !spec.Match(ref.Name()) {
+			if !spec.Match(ref.Name()) && !spec.IsExactSHA1() {
 				continue
 			}
 
@@ -973,15 +1073,32 @@ func (r *Remote) buildFetchedTags(refs memory.ReferenceStorage) (updated bool, e
 }
 
 // List the references on the remote repository.
+// The provided Context must be non-nil. If the context expires before the
+// operation is complete, an error is returned. The context only affects to the
+// transport operations.
+func (r *Remote) ListContext(ctx context.Context, o *ListOptions) (rfs []*plumbing.Reference, err error) {
+	refs, err := r.list(ctx, o)
+	if err != nil {
+		return refs, err
+	}
+	return refs, nil
+}
+
 func (r *Remote) List(o *ListOptions) (rfs []*plumbing.Reference, err error) {
-	s, err := newUploadPackSession(r.c.URLs[0], o.Auth)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return r.ListContext(ctx, o)
+}
+
+func (r *Remote) list(ctx context.Context, o *ListOptions) (rfs []*plumbing.Reference, err error) {
+	s, err := newUploadPackSession(r.c.URLs[0], o.Auth, o.InsecureSkipTLS, o.CABundle)
 	if err != nil {
 		return nil, err
 	}
 
 	defer ioutil.CheckClose(s, &err)
 
-	ar, err := s.AdvertisedReferences()
+	ar, err := s.AdvertisedReferencesContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -997,21 +1114,22 @@ func (r *Remote) List(o *ListOptions) (rfs []*plumbing.Reference, err error) {
 	}
 
 	var resultRefs []*plumbing.Reference
-	refs.ForEach(func(ref *plumbing.Reference) error {
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
 		resultRefs = append(resultRefs, ref)
 		return nil
 	})
-
+	if err != nil {
+		return nil, err
+	}
 	return resultRefs, nil
 }
 
 func objectsToPush(commands []*packp.Command) []plumbing.Hash {
-	var objects []plumbing.Hash
+	objects := make([]plumbing.Hash, 0, len(commands))
 	for _, cmd := range commands {
 		if cmd.New == plumbing.ZeroHash {
 			continue
 		}
-
 		objects = append(objects, cmd.New)
 	}
 	return objects
@@ -1049,7 +1167,7 @@ func pushHashes(
 	allDelete bool,
 ) (*packp.ReportStatus, error) {
 
-	rd, wr := io.Pipe()
+	rd, wr := ioutil.Pipe()
 
 	config, err := s.Config()
 	if err != nil {
@@ -1111,4 +1229,34 @@ outer:
 	}
 
 	return r.s.SetShallow(shallows)
+}
+
+func (r *Remote) checkRequireRemoteRefs(requires []config.RefSpec, remoteRefs storer.ReferenceStorer) error {
+	for _, require := range requires {
+		if require.IsWildcard() {
+			return fmt.Errorf("wildcards not supported in RequireRemoteRefs, got %s", require.String())
+		}
+
+		name := require.Dst("")
+		remote, err := remoteRefs.Reference(name)
+		if err != nil {
+			return fmt.Errorf("remote ref %s required to be %s but is absent", name.String(), require.Src())
+		}
+
+		var requireHash string
+		if require.IsExactSHA1() {
+			requireHash = require.Src()
+		} else {
+			target, err := storer.ResolveReference(remoteRefs, plumbing.ReferenceName(require.Src()))
+			if err != nil {
+				return fmt.Errorf("could not resolve ref %s in RequireRemoteRefs", require.Src())
+			}
+			requireHash = target.Hash().String()
+		}
+
+		if remote.Hash().String() != requireHash {
+			return fmt.Errorf("remote ref %s required to be %s but is %s", name.String(), requireHash, remote.Hash().String())
+		}
+	}
+	return nil
 }
