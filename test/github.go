@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"io/ioutil"
 	"net/http"
 	"path"
@@ -50,7 +51,7 @@ func main() {
 
 		if orgReq.Login == authenticatedLogin {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			_, err := w.Write([]byte(fmt.Sprintf("%s is a user, not an organization", orgReq.Login)))
+			_, err := w.Write([]byte(fmt.Sprintf("%s is a user, not an organization", html.EscapeString(orgReq.Login))))
 			if err != nil {
 				panic(err)
 			}
@@ -58,7 +59,7 @@ func main() {
 
 		if orgReq.Login == existingOrg {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			_, err := w.Write([]byte(fmt.Sprintf("Organization %s already exists", orgReq.Login)))
+			_, err := w.Write([]byte(fmt.Sprintf("Organization %s already exists", html.EscapeString(orgReq.Login))))
 			if err != nil {
 				panic(err)
 			}
@@ -77,7 +78,7 @@ func main() {
 
 		if orgName != existingOrg {
 			w.WriteHeader(http.StatusNotFound)
-			_, err := w.Write([]byte(fmt.Sprintf("Organization %s not found", orgName)))
+			_, err := w.Write([]byte(fmt.Sprintf("Organization %s not found", html.EscapeString(orgName))))
 			if err != nil {
 				panic(err)
 			}
@@ -107,7 +108,7 @@ func main() {
 
 		if repoReq.Name == "repo-already-exists" {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			_, err := w.Write([]byte(fmt.Sprintf("Repo %s already exists", repoReq.Name)))
+			_, err := w.Write([]byte(fmt.Sprintf("Repo %s already exists", html.EscapeString(repoReq.Name))))
 			if err != nil {
 				panic(err)
 			}
@@ -137,7 +138,7 @@ func main() {
 
 		if repoReq.Name == existingRepo {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			_, err := w.Write([]byte(fmt.Sprintf("Repo %s already exists", repoReq.Name)))
+			_, err := w.Write([]byte(fmt.Sprintf("Repo %s already exists", html.EscapeString(repoReq.Name))))
 			if err != nil {
 				panic(err)
 			}
