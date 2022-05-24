@@ -159,7 +159,7 @@ func main() {
 
 		if repoName != existingRepo {
 			w.WriteHeader(http.StatusNotFound)
-			_, err := w.Write([]byte(fmt.Sprintf("Repo %s not found", repoName)))
+			_, err := w.Write([]byte(fmt.Sprintf("Repo %s not found", html.EscapeString(repoName))))
 			if err != nil {
 				panic(err)
 			}
