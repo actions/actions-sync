@@ -35,7 +35,7 @@ When there are machines which have access to both the public internet and the GH
 - `repo-name-list` _(optional)_
    A comma-separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `repo-name-list-file` _(optional)_
-   A path to a file containing a newline separated list of repositories to be synced. Each entry follows te format of `repo-name`.
+   A path to a file containing a newline separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 
 **Example Usage:**
 
