@@ -64,7 +64,7 @@ When no machine has access to both the public internet and the GHES instance:
 - `cache-dir` _(required)_
    The directory to cache the pulled repositories into.
 - `repo-name` _(optional)_
-   A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/up_streamrepo:destination_owner/destination_repo`
+   A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
    A comma-separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `repo-name-list-file` _(optional)_
