@@ -26,6 +26,10 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {})
 
+	r.HandleFunc("/api/v3", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("x-github-enterprise-version", "GitHub AE")
+	})
+
 	r.HandleFunc("/api/v3/user", func(w http.ResponseWriter, r *http.Request) {
 		currentUser := github.User{Login: &authenticatedLogin}
 		b, _ := json.Marshal(currentUser)
@@ -34,6 +38,17 @@ func main() {
 			panic(err)
 		}
 	})
+
+	r.HandleFunc("/api/v3/admin/users/actions-admin/authorizations", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("x-github-enterprise-version", "GitHub AE")
+		token := "token"
+		auth := github.Authorization{Token: &token}
+		b, _ := json.Marshal(auth)
+		_, err := w.Write(b)
+		if err != nil {
+			panic(err)
+		}
+	}).Methods("POST")
 
 	r.HandleFunc("/api/v3/admin/organizations", func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
