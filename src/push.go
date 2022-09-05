@@ -17,9 +17,13 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const enterpriseAPIPath = "/api/v3"
+const enterpriseVersionHeaderKey = "X-GitHub-Enterprise-Version"
+const enterpriseAegisVersionHeaderValue = "GitHub AE"
+
 type PushOnlyFlags struct {
-	BaseURL, Token string
-	DisableGitAuth bool
+	BaseURL, Token, ActionsAdminUser string
+	DisableGitAuth                   bool
 }
 
 type PushFlags struct {
@@ -34,6 +38,7 @@ func (f *PushFlags) Init(cmd *cobra.Command) {
 
 func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.BaseURL, "destination-url", "", "URL of GHES instance")
+	cmd.Flags().StringVar(&f.Token, "actions-admin-user", "actions-admin", "The name of the Actions admin user.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
 }
@@ -53,8 +58,52 @@ func (f *PushOnlyFlags) Validate() Validations {
 	return validations
 }
 
-func Push(ctx context.Context, flags *PushFlags) error {
+func GetToken(ctx context.Context, flags *PushFlags) (*string, error) {
+	fmt.Printf("Getting a token for `%s`..\n", flags.ActionsAdminUser)
+
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: flags.Token})
+	tc := oauth2.NewClient(ctx, ts)
+	ghClient, err := github.NewEnterpriseClient(flags.BaseURL, flags.BaseURL, tc)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating enterprise client")
+	}
+
+	rootRequest, err := ghClient.NewRequest("GET", enterpriseAPIPath, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error constructing request for GitHub Enterprise client.")
+	}
+	rootResponse, err := ghClient.Do(ctx, rootRequest, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error checking connectivity for GitHub Enterprise client.")
+	}
+
+	isAE := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+
+	minimumRepositoryScope := "public_repo"
+	if isAE {
+		// the default repository scope for non-ae instances is 'public_repo'
+		// while it is `repo` for ae.
+		minimumRepositoryScope = "repo"
+		fmt.Printf("Running against GitHub AE, requesting the '%s' scope..\n", minimumRepositoryScope)
+	}
+
+	impersonationToken, _, err := ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to impersonate Actions admin user.")
+	}
+
+	fmt.Printf("Got the token for `%s` with scope '%s'..\n", flags.ActionsAdminUser, minimumRepositoryScope)
+	var result = impersonationToken.GetToken()
+	return &result, nil
+}
+
+func Push(ctx context.Context, flags *PushFlags) error {
+	var token, err = GetToken(ctx, flags)
+	if err != nil {
+		return errors.Wrap(err, "error obtaining token")
+	}
+
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: *token})
 	tc := oauth2.NewClient(ctx, ts)
 	ghClient, err := github.NewEnterpriseClient(flags.BaseURL, flags.BaseURL, tc)
 	if err != nil {
