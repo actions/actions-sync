@@ -24,6 +24,8 @@ When there are machines which have access to both the public internet and the GH
 
 **Arguments:**
 
+- `actions-admin-user` _(optional)_
+   The name of the Actions admin user, which will be used for updating the chosen action. If not specified `actions-admin` will be used. To disable the impersonation pass `-` as the value.
 - `cache-dir` _(required)_
    The directory in which to cache repositories as they are synced. This speeds up re-syncing.
 - `destination-url` _(required)_
@@ -84,6 +86,8 @@ When no machine has access to both the public internet and the GHES instance:
 
 **Arguments:**
 
+- `actions-admin-user` _(optional)_
+   The name of the Actions admin user, which will be used for updating the chosen action. If not specified `actions-admin` will be used. To disable the impersonation pass `-` as the value.
 - `cache-dir` _(required)_
    The directory containing the repositories fetched using the `pull` command.
 - `destination-url` _(required)_
