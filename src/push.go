@@ -39,7 +39,7 @@ func (f *PushFlags) Init(cmd *cobra.Command) {
 
 func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.BaseURL, "destination-url", "", "URL of GHES instance")
-	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "actions-admin", "The name of the Actions admin user (pass '-' to disable the impersonation)")
+	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
 }
@@ -60,7 +60,7 @@ func (f *PushOnlyFlags) Validate() Validations {
 }
 
 func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error) {
-	fmt.Printf("Getting an impersonation token for `%s`..\n", flags.ActionsAdminUser)
+	fmt.Printf("getting an impersonation token for `%s` ...\n", flags.ActionsAdminUser)
 
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: flags.Token})
 	tc := oauth2.NewClient(ctx, ts)
@@ -71,15 +71,15 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 
 	rootRequest, err := ghClient.NewRequest("GET", enterpriseAPIPath, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "Error constructing request for GitHub Enterprise client.")
+		return "", errors.Wrap(err, "error constructing request for GitHub Enterprise client.")
 	}
 	rootResponse, err := ghClient.Do(ctx, rootRequest, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "Error checking connectivity for GitHub Enterprise client.")
+		return "", errors.Wrap(err, "error checking connectivity for GitHub Enterprise client.")
 	}
 
 	scopesHeader := rootResponse.Header.Get(xOAuthScopesHeader)
-	fmt.Printf("These are the scopes we have for the current token `%s`..\n", scopesHeader)
+	fmt.Printf("these are the scopes we have for the current token `%s` ...\n", scopesHeader)
 
 	isAE := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
 	minimumRepositoryScope := "public_repo"
@@ -87,10 +87,10 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 		// the default repository scope for non-ae instances is 'public_repo'
 		// while it is `repo` for ae.
 		minimumRepositoryScope = "repo"
-		fmt.Printf("Running against GitHub AE, changing the repository scope to '%s'..\n", minimumRepositoryScope)
+		fmt.Printf("running against GitHub AE, changing the repository scope to '%s' ...\n", minimumRepositoryScope)
 	} else {
 		if !strings.Contains(scopesHeader, "site_admin") {
-			fmt.Printf("The current token doesn't have the `site_admin` scope. The impersonation request for GHES requres the `site_admin` permission to be able to impersonate. For GitHub AE it's not required.")
+			fmt.Printf("the current token doesn't have the `site_admin` scope. The impersonation request for GHES requres the `site_admin` permission to be able to impersonate. For GitHub AE it's not required.")
 		}
 	}
 
@@ -99,13 +99,13 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 		return "", errors.Wrap(err, "Failed to impersonate Actions admin user.")
 	}
 
-	fmt.Printf("Got the impersonation token for `%s`..\n", flags.ActionsAdminUser)
+	fmt.Printf("got the impersonation token for `%s` ...\n", flags.ActionsAdminUser)
 
 	return impersonationToken.GetToken(), nil
 }
 
 func Push(ctx context.Context, flags *PushFlags) error {
-	if flags.ActionsAdminUser != "-" {
+	if flags.ActionsAdminUser != "" {
 		var token, err = GetImpersonationToken(ctx, flags)
 		if err != nil {
 			return errors.Wrap(err, "error obtaining the impersonation token")
@@ -113,6 +113,8 @@ func Push(ctx context.Context, flags *PushFlags) error {
 
 		// Override the initial token with the one that we got in the exchange
 		flags.Token = token
+	} else {
+		fmt.Print("not using impersonation for the requests \n")
 	}
 
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: flags.Token})
