@@ -3,3 +3,4 @@ _tools/bin
 bin
 test/tmp
 dist
+actions-sync

@@ -17,9 +17,14 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const enterpriseAegisVersionHeaderValue = "GitHub AE"
+const enterpriseAPIPath = "/api/v3"
+const enterpriseVersionHeaderKey = "X-GitHub-Enterprise-Version"
+const xOAuthScopesHeader = "X-OAuth-Scopes"
+
 type PushOnlyFlags struct {
-	BaseURL, Token string
-	DisableGitAuth bool
+	BaseURL, Token, ActionsAdminUser string
+	DisableGitAuth                   bool
 }
 
 type PushFlags struct {
@@ -34,6 +39,7 @@ func (f *PushFlags) Init(cmd *cobra.Command) {
 
 func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.BaseURL, "destination-url", "", "URL of GHES instance")
+	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
 }
@@ -53,7 +59,64 @@ func (f *PushOnlyFlags) Validate() Validations {
 	return validations
 }
 
+func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error) {
+	fmt.Printf("getting an impersonation token for `%s` ...\n", flags.ActionsAdminUser)
+
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: flags.Token})
+	tc := oauth2.NewClient(ctx, ts)
+	ghClient, err := github.NewEnterpriseClient(flags.BaseURL, flags.BaseURL, tc)
+	if err != nil {
+		return "", errors.Wrap(err, "error creating enterprise client")
+	}
+
+	rootRequest, err := ghClient.NewRequest("GET", enterpriseAPIPath, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "error constructing request for GitHub Enterprise client.")
+	}
+	rootResponse, err := ghClient.Do(ctx, rootRequest, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "error checking connectivity for GitHub Enterprise client.")
+	}
+
+	scopesHeader := rootResponse.Header.Get(xOAuthScopesHeader)
+	fmt.Printf("these are the scopes we have for the current token `%s` ...\n", scopesHeader)
+
+	if !strings.Contains(scopesHeader, "site_admin") {
+		return "", errors.Wrap(err, "the current token doesn't have the `site_admin` scope, the impersonation function requires the `site_admin` permission to be able to impersonate.")
+	}
+
+	isAE := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+	minimumRepositoryScope := "public_repo"
+	if isAE {
+		// the default repository scope for non-ae instances is 'public_repo'
+		// while it is `repo` for ae.
+		minimumRepositoryScope = "repo"
+		fmt.Printf("running against GitHub AE, changing the repository scope to '%s' ...\n", minimumRepositoryScope)
+	}
+
+	impersonationToken, _, err := ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to impersonate Actions admin user.")
+	}
+
+	fmt.Printf("got the impersonation token for `%s` ...\n", flags.ActionsAdminUser)
+
+	return impersonationToken.GetToken(), nil
+}
+
 func Push(ctx context.Context, flags *PushFlags) error {
+	if flags.ActionsAdminUser != "" {
+		var token, err = GetImpersonationToken(ctx, flags)
+		if err != nil {
+			return errors.Wrap(err, "error obtaining the impersonation token")
+		}
+
+		// Override the initial token with the one that we got in the exchange
+		flags.Token = token
+	} else {
+		fmt.Print("not using impersonation for the requests \n")
+	}
+
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: flags.Token})
 	tc := oauth2.NewClient(ctx, ts)
 	ghClient, err := github.NewEnterpriseClient(flags.BaseURL, flags.BaseURL, tc)
