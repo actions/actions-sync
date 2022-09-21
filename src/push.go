@@ -81,6 +81,10 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 	scopesHeader := rootResponse.Header.Get(xOAuthScopesHeader)
 	fmt.Printf("these are the scopes we have for the current token `%s` ...\n", scopesHeader)
 
+	if !strings.Contains(scopesHeader, "site_admin") {
+		return "", errors.Wrap(err, "the current token doesn't have the `site_admin` scope, the impersonation function requires the `site_admin` permission to be able to impersonate.")
+	}
+
 	isAE := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
 	minimumRepositoryScope := "public_repo"
 	if isAE {
@@ -88,15 +92,11 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 		// while it is `repo` for ae.
 		minimumRepositoryScope = "repo"
 		fmt.Printf("running against GitHub AE, changing the repository scope to '%s' ...\n", minimumRepositoryScope)
-	} else {
-		if !strings.Contains(scopesHeader, "site_admin") {
-			fmt.Printf("the current token doesn't have the `site_admin` scope. The impersonation request for GHES requres the `site_admin` permission to be able to impersonate. For GitHub AE it's not required.")
-		}
 	}
 
 	impersonationToken, _, err := ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to impersonate Actions admin user.")
+		return "", errors.Wrap(err, "failed to impersonate Actions admin user.")
 	}
 
 	fmt.Printf("got the impersonation token for `%s` ...\n", flags.ActionsAdminUser)
