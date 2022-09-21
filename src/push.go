@@ -39,7 +39,7 @@ func (f *PushFlags) Init(cmd *cobra.Command) {
 
 func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.BaseURL, "destination-url", "", "URL of GHES instance")
-	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'.")
+	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
 }

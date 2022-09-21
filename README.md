@@ -25,7 +25,7 @@ When there are machines which have access to both the public internet and the GH
 **Arguments:**
 
 - `actions-admin-user` _(optional)_
-   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled.
+   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
 - `cache-dir` _(required)_
    The directory in which to cache repositories as they are synced. This speeds up re-syncing.
 - `destination-url` _(required)_
@@ -87,7 +87,7 @@ When no machine has access to both the public internet and the GHES instance:
 **Arguments:**
 
 - `actions-admin-user` _(optional)_
-   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled.
+   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
 - `cache-dir` _(required)_
    The directory containing the repositories fetched using the `pull` command.
 - `destination-url` _(required)_
@@ -108,7 +108,7 @@ When no machine has access to both the public internet and the GHES instance:
 
 ## Destination token scopes
 
-When creating a personal access token include the `repo` and `workflow` scopes. Include the `site_admin` scope (optional) if you want organizations to be created as necessary.
+When creating a personal access token include the `repo` and `workflow` scopes. Include the `site_admin` scope (optional) if you want organizations to be created as necessary or you want to use the impersonation logic for the `push` or `sync` commands.
 
 ## Contributing
 
