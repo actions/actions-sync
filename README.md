@@ -24,8 +24,6 @@ When there are machines which have access to both the public internet and the GH
 
 **Arguments:**
 
-- `actions-admin-user` _(optional)_
-   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
 - `cache-dir` _(required)_
    The directory in which to cache repositories as they are synced. This speeds up re-syncing.
 - `destination-url` _(required)_
@@ -38,6 +36,8 @@ When there are machines which have access to both the public internet and the GH
    A comma-separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `repo-name-list-file` _(optional)_
    A path to a file containing a newline separated list of repositories to be synced. Each entry follows the format of `repo-name`.
+- `actions-admin-user` _(optional)_
+   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
 
 **Example Usage:**
 
@@ -86,8 +86,6 @@ When no machine has access to both the public internet and the GHES instance:
 
 **Arguments:**
 
-- `actions-admin-user` _(optional)_
-   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
 - `cache-dir` _(required)_
    The directory containing the repositories fetched using the `pull` command.
 - `destination-url` _(required)_
@@ -96,6 +94,8 @@ When no machine has access to both the public internet and the GHES instance:
    A personal access token to authenticate against the GHES instance when uploading repositories. See [Destination token scopes](#destination-token-scopes) below.
 - `repo-name`, `repo-name-list` or `repo-name-list-file` _(optional)_
    Limit push to specific repositories in the cache directory.
+- `actions-admin-user` _(optional)_
+   The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
 
 **Example Usage:**
 
