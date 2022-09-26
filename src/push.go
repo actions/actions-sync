@@ -82,7 +82,7 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 	fmt.Printf("these are the scopes we have for the current token `%s` ...\n", scopesHeader)
 
 	if !strings.Contains(scopesHeader, "site_admin") {
-		return "", errors.Wrap(err, "the current token doesn't have the `site_admin` scope, the impersonation function requires the `site_admin` permission to be able to impersonate.")
+		return "", errors.New("the current token doesn't have the `site_admin` scope, the impersonation function requires the `site_admin` permission to be able to impersonate.")
 	}
 
 	isAE := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
