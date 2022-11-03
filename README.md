@@ -96,6 +96,8 @@ When no machine has access to both the public internet and the GHES instance:
    Limit push to specific repositories in the cache directory.
 - `actions-admin-user` _(optional)_
    The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
+- `destination-is-ghae` _(optional)_
+   Indicates if the destination applicance is GHAE.
 
 **Example Usage:**
 
