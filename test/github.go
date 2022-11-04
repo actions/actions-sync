@@ -21,6 +21,7 @@ const existingRepo string = "repo-already-exists"
 const ghaeRepo string = "ghae-repo"
 const xOAuthScopesHeader = "X-OAuth-Scopes"
 
+//nolint:gocyclo
 func main() {
 	var port, gitDaemonURL string
 	flag.StringVar(&port, "p", "", "")
