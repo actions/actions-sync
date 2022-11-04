@@ -123,6 +123,16 @@ function test_push() {
   push "pushing to authenticated user's account"
   assert_dest_sha "monalisa/new-repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating monalisa/new-repo"
 
+  # Push to GHAE with impersonation
+  setup_cache "org-already-exists/ghae-repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org-already-exists/ghae-repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  push_impersonation "ghae-admin" "pushing to GHAE repo"
+
+  # Push to GHES with impersonation
+  setup_cache "org-already-exists/ghes-repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org-already-exists/ghes-repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  push_impersonation "ghes-admin" "pushing to GHES repo"
+
   echo "all push tests passed successfully"
 }
 
@@ -311,6 +321,17 @@ function push2args() {
     "$1" "$2" \
     &> $OUTPUT ||
     fail $3
+}
+
+function push_impersonation() {
+  bin/actions-sync push \
+    --cache-dir "test/tmp/cache" \
+    --disable-push-git-auth \
+    --destination-token "token" \
+    --destination-url "http://localhost:$DEST_API_PORT" \
+    --actions-admin-user $1 \
+    &> $OUTPUT ||
+    fail "$2"
 }
 
 function sync() {

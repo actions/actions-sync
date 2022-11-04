@@ -179,21 +179,16 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 }
 
 func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
-	repo := &github.Repository{
-		Name:        github.String(repoName),
-		HasIssues:   github.Bool(false),
-		HasWiki:     github.Bool(false),
-		HasPages:    github.Bool(false),
-		HasProjects: github.Bool(false),
-	}
-
-	currentUser, _, err := client.Users.Get(ctx, "")
+	// retrieve user associated to authentication credentials provided
+	currentUser, userResponse, err := client.Users.Get(ctx, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "error retrieving authenticated user")
 	}
 	if currentUser == nil || currentUser.Login == nil {
 		return nil, errors.New("error retrieving authenticated user's login name")
 	}
+	// checking if we talk to GHAE
+	isAE := userResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
 
 	// check if the owner refers to the authenticated user or an organization.
 	var createRepoOrgName string
@@ -209,15 +204,36 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		}
 	}
 
-	ghRepo, resp, err := client.Repositories.Create(ctx, createRepoOrgName, repo)
+	// check if repository already exists
+	ghRepo, resp, err := client.Repositories.Get(ctx, ownerName, repoName)
+
 	if err == nil {
-		fmt.Printf("Created repo `%s/%s`\n", ownerName, repoName)
-	} else if resp != nil && resp.StatusCode == 422 {
-		ghRepo, _, err = client.Repositories.Get(ctx, ownerName, repoName)
-	}
-	if err != nil {
+		fmt.Printf("Existing repo `%s/%s`\n", ownerName, repoName)
+	} else if resp != nil && resp.StatusCode == 404 {
+		// repo not existing yet - try to create
+		visibility := github.String("public")
+		if isAE {
+			visibility = github.String("internal")
+		}
+		repo := &github.Repository{
+			Name:        github.String(repoName),
+			HasIssues:   github.Bool(false),
+			HasWiki:     github.Bool(false),
+			HasPages:    github.Bool(false),
+			HasProjects: github.Bool(false),
+			Visibility:  visibility,
+		}
+
+		ghRepo, _, err = client.Repositories.Create(ctx, createRepoOrgName, repo)
+		if err == nil {
+			fmt.Printf("Created repo `%s/%s`\n", ownerName, repoName)
+		} else {
+			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
+		}
+	} else if err != nil {
 		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 	}
+
 	if ghRepo == nil {
 		return nil, errors.New("error repository is nil")
 	}
