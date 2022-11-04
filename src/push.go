@@ -230,6 +230,8 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		} else {
 			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 		}
+	} else if err != nil {
+		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 	}
 
 	if ghRepo == nil {
