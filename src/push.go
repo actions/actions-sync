@@ -25,7 +25,6 @@ const xOAuthScopesHeader = "X-OAuth-Scopes"
 type PushOnlyFlags struct {
 	BaseURL, Token, ActionsAdminUser string
 	DisableGitAuth                   bool
-	IsAE                             bool
 }
 
 type PushFlags struct {
@@ -43,7 +42,6 @@ func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
-	cmd.Flags().BoolVar(&f.IsAE, "destination-is-ghae", false, "Destination instance is GHAE")
 }
 
 func (f *PushFlags) Validate() Validations {
@@ -87,9 +85,9 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 		return "", errors.New("the current token doesn't have the `site_admin` scope, the impersonation function requires the `site_admin` permission to be able to impersonate")
 	}
 
-	flags.IsAE = rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+	isAE := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
 	minimumRepositoryScope := "public_repo"
-	if flags.IsAE {
+	if isAE {
 		// the default repository scope for non-ae instances is 'public_repo'
 		// while it is `repo` for ae.
 		minimumRepositoryScope = "repo"
@@ -168,7 +166,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	}
 
 	fmt.Printf("syncing `%s`\n", nwo)
-	ghRepo, err := getOrCreateGitHubRepo(ctx, flags, ghClient, bareRepoName, ownerName)
+	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, bareRepoName, ownerName)
 	if err != nil {
 		return errors.Wrapf(err, "error creating github repository `%s`", nwo)
 	}
@@ -180,27 +178,17 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	return nil
 }
 
-func getOrCreateGitHubRepo(ctx context.Context, flags *PushFlags, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
-	visibility := github.String("public")
-	if flags.IsAE {
-		visibility = github.String("internal")
-	}
-	repo := &github.Repository{
-		Name:        github.String(repoName),
-		HasIssues:   github.Bool(false),
-		HasWiki:     github.Bool(false),
-		HasPages:    github.Bool(false),
-		HasProjects: github.Bool(false),
-		Visibility:  visibility,
-	}
-
-	currentUser, _, err := client.Users.Get(ctx, "")
+func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
+	// retrieve user associated to authentication credentials provided
+	currentUser, userResponse, err := client.Users.Get(ctx, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "error retrieving authenticated user")
 	}
 	if currentUser == nil || currentUser.Login == nil {
 		return nil, errors.New("error retrieving authenticated user's login name")
 	}
+	// checking if we talk to GHAE
+	isAE := userResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
 
 	// check if the owner refers to the authenticated user or an organization.
 	var createRepoOrgName string
@@ -216,15 +204,34 @@ func getOrCreateGitHubRepo(ctx context.Context, flags *PushFlags, client *github
 		}
 	}
 
-	ghRepo, resp, err := client.Repositories.Create(ctx, createRepoOrgName, repo)
+	// check if repository already exists
+	ghRepo, resp, err := client.Repositories.Get(ctx, ownerName, repoName)
+
 	if err == nil {
-		fmt.Printf("Created repo `%s/%s`\n", ownerName, repoName)
-	} else if resp != nil && resp.StatusCode == 422 {
-		ghRepo, _, err = client.Repositories.Get(ctx, ownerName, repoName)
+		fmt.Printf("Existing repo `%s/%s`\n", ownerName, repoName)
+	} else if resp != nil && resp.StatusCode == 404 {
+		// repo not existing yet - try to create
+		visibility := github.String("public")
+		if isAE {
+			visibility = github.String("internal")
+		}
+		repo := &github.Repository{
+			Name:        github.String(repoName),
+			HasIssues:   github.Bool(false),
+			HasWiki:     github.Bool(false),
+			HasPages:    github.Bool(false),
+			HasProjects: github.Bool(false),
+			Visibility:  visibility,
+		}
+
+		ghRepo, _, err = client.Repositories.Create(ctx, createRepoOrgName, repo)
+		if err == nil {
+			fmt.Printf("Created repo `%s/%s`\n", ownerName, repoName)
+		} else {
+			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
+		}
 	}
-	if err != nil {
-		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
-	}
+
 	if ghRepo == nil {
 		return nil, errors.New("error repository is nil")
 	}
