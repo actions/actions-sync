@@ -1,0 +1,19 @@
+name: Actions Sync E2E Sanity Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sanity-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runson: [ubuntu-latest, macos-latest, windows-latest]
+    uses: ./.github/workflows/actions-sync-e2e-test-called.yml
+    with:
+      runson: ${{ matrix.runson }}
+    secrets:
+      ghes_url: ${{ secrets.sanity_test_ghes_url }}
+      actions_sync_releasedatetime: ${{ secrets.sanity_test_releasedatetime }}
+      site_admin_token: ${{ secrets.sanity_test_site_admin_token }}
+
