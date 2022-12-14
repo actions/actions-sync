@@ -1,0 +1,34 @@
+name: Actions Sync E2E Sanity Test Reusable
+
+on:
+  workflow_call:
+    inputs:
+      runson:
+        type: string
+        required: true
+    secrets:
+      ghes_url:
+        required: true
+      actions_sync_releasedatetime:
+        required: true
+      site_admin_token:
+        required: true
+
+jobs:
+  execute:
+    runs-on: ${{ inputs.runson }}
+    steps:
+    - uses: actions/checkout@v3
+    - name: Bootstrap
+      run: |
+        .\script\bootstrap-sanity-test.ps1
+      shell: pwsh
+      env:
+        RELEASEDATE: ${{ secrets.actions_sync_releasedatetime }}
+    - name: Test execution
+      run: |
+        .\script\execute-sanity-test.ps1
+      shell: pwsh
+      env:
+        TOKEN: ${{ secrets.site_admin_token }}
+        TEST_INSTANCE_URL: ${{ secrets.ghes_url }}
