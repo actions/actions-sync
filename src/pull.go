@@ -45,19 +45,19 @@ func Pull(ctx context.Context, flags *PullFlags) error {
 		return err
 	}
 
-	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, repoNames, gitImplementation{})
+	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, flags.CommonFlags.GHPatToken, flags.CommonFlags.PackageSync, repoNames, gitImplementation{})
 }
 
-func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
+func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken string, packageSync bool, repoNames []string, gitimpl GitImplementation) error {
 	for _, repoName := range repoNames {
-		if err := PullWithGitImpl(ctx, sourceURL, cacheDir, repoName, gitimpl); err != nil {
+		if err := PullWithGitImpl(ctx, sourceURL, cacheDir, ghPatToken, repoName, packageSync, gitimpl); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName string, gitimpl GitImplementation) error {
+func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken, repoName string, packageSync bool, gitimpl GitImplementation) error {
 	originRepoName, destRepoName, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
@@ -98,6 +98,13 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName s
 	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
+	}
+
+	if packageSync == true {
+		err = PullPackagesForRepo(cacheDir, repoName, ghPatToken)
+		if err != nil {
+			return fmt.Errorf("Could not pull packages for %s: %w", repoName, err)
+		}
 	}
 
 	return nil

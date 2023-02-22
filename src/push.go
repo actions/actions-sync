@@ -174,7 +174,17 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	if err != nil {
 		return errors.Wrapf(err, "error syncing repository `%s`", nwo)
 	}
-	fmt.Printf("successfully synced `%s`\n", nwo)
+	fmt.Printf("repo successfully synced `%s`\n", nwo)
+
+	if flags.PackageSync == true {
+		fmt.Printf("syncing packages for `%s`\n", nwo)
+		err = PushPackagesForRepo(flags.CacheDir, flags.GHPatToken, repoName, flags.BaseURL, flags.Token, nwo)
+		if err != nil {
+			return errors.Wrapf(err, "error syncing packages for repository `%s`", nwo)
+		}
+		fmt.Printf("successfully synced packages for repo `%s`\n", repoName)
+	}
+	
 	return nil
 }
 
