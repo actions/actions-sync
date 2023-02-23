@@ -37,7 +37,6 @@ func GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded string) ([]str
 
 	//Get the list of tags for the repo packages from GHCR
 	url := fmt.Sprintf("https://ghcr.io/v2/%s/tags/list", repoName)
-	fmt.Println("Getting list of tags for packages from GHCR. Url: ", url)
     req, err := http.NewRequest("GET", url, nil)
     if err != nil {
         return nil, fmt.Errorf("Error getting list of tags for packages: %s", err)
@@ -130,6 +129,10 @@ func CreateReleaseForRepoTag(destinationURL, token, repoName string, release Rel
     }
     defer res.Body.Close()
 
+	if res.StatusCode == http.StatusUnprocessableEntity {
+		//Release already exists so skip
+		return 0, nil
+	}
 	if res.StatusCode != http.StatusCreated {
 		return 0, fmt.Errorf("Error creating new release on GHES: %s", res.Status)
 	}

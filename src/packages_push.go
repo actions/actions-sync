@@ -40,6 +40,10 @@ func PushPackageForTag(cacheDir, sourceRepoName, ghPATToken, destinationURL, des
 	if err != nil {
 		return fmt.Errorf("Error creating release for tag %s: %s", tagName, err)
 	}
+	if releaseId == 0 {
+		//release and package already published so will be skipped as package overwrite is not supported
+		return nil
+	}
 
 	//Push the package to destination
 	err = PushPackageToDestination(cacheDir, destinationURL, destinationToken, destinationRepoName, tagName, sourceRepoName, releaseId)
@@ -86,6 +90,14 @@ func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoNa
     }
     defer resp.Body.Close()
 
+	// fmt.Println(resp.Status)
+	// body, err := ioutil.ReadAll(resp.Body)
+    // if err != nil {
+    //     fmt.Println("Error:", err)
+    //     return err
+    // }
+
+    // fmt.Println(string(body))
 	if resp.StatusCode != http.StatusCreated {
 		fmt.Printf("Error publishing package on GHES: %s", err)
 	}
