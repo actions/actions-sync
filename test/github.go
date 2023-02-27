@@ -27,7 +27,7 @@ const xOAuthScopesHeader = "X-OAuth-Scopes"
 const packagesMockDataPath = "test/fixtures/packages"
 
 type Release struct {
-	Id                   int    `json:"id"`
+	ID                   int    `json:"id"`
 	TagName              string `json:"tag_name"`
 	TargetCommitish      string `json:"target_commitish"`
 	Name                 string `json:"name"`
@@ -76,7 +76,7 @@ func main() {
 		releaseCreationCounter++
 
 		createdRelease := Release{
-			Id:              releaseCreationCounter,
+			ID:              releaseCreationCounter,
 			TagName:         release.TagName,
 			TargetCommitish: release.TargetCommitish,
 			Name:            release.Name,
@@ -87,7 +87,12 @@ func main() {
 
 		// Return the created release in the response.
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(createdRelease)
+		err = json.NewEncoder(w).Encode(createdRelease)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error encoding response body: %v", err)
+			return
+		}
 
 	}).Methods("POST")
 
@@ -365,7 +370,11 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
-		w.Write(blob)
+		_, err = w.Write(blob)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 	})
 
@@ -374,7 +383,7 @@ func main() {
 	ghAPIRouter.HandleFunc("/repos/{owner}/{repo}/releases/tags/{tag}", func(w http.ResponseWriter, r *http.Request) {
 
 		tag := mux.Vars(r)["tag"]
-		
+
 		if !isValidInput(tag) {
 			log.Fatal("Invalid input")
 			return
@@ -445,13 +454,13 @@ func main() {
 
 func isValidInput(input string) bool {
 
-    invalidChars := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+	invalidChars := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
 
-    for _, c := range invalidChars {
-        if strings.Contains(input, c) {
-            return false
-        }
-    }
+	for _, c := range invalidChars {
+		if strings.Contains(input, c) {
+			return false
+		}
+	}
 
-    return true
+	return true
 }

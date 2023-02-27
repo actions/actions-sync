@@ -102,7 +102,7 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken, repoN
 		return err
 	}
 
-	if packageSync == true {
+	if packageSync {
 		err = PullPackagesForRepo(cacheDir, originRepoName, ghPatToken, ghcrHost)
 		if err != nil {
 			return fmt.Errorf("Could not pull packages for %s: %w", repoName, err)

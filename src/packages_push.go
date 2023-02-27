@@ -34,13 +34,13 @@ func PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, des
 	}
 
 	//Create release on destination
-	releaseId, err:= CreateReleaseForRepoTag(destinationURL, destinationToken, destinationRepoName, release)
+	releaseID, err:= CreateReleaseForRepoTag(destinationURL, destinationToken, destinationRepoName, release)
 	if err != nil {
 		return fmt.Errorf("Error creating release for  %s:%s: %s", destinationRepoName, tagName, err)
 	}
 
 	//Push the package to destination
-	err = PushPackageToDestination(cacheDir, destinationURL, destinationToken, destinationRepoName, tagName, sourceRepoName, releaseId)
+	err = PushPackageToDestination(cacheDir, destinationURL, destinationToken, destinationRepoName, tagName, sourceRepoName, releaseID)
 	if err != nil {
 		return fmt.Errorf("Error pushing package for tag %s to GHES: %s", tagName, err)
 	}
@@ -49,7 +49,7 @@ func PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, des
 
 
 
-func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoName, tagName , sourceRepoName string, releaseId int) error {
+func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoName, tagName , sourceRepoName string, releaseID int) error {
 
 	//get package for tag from cacheDir
 	filePath:= fmt.Sprintf("%s/%s-%s.tar.gz", cacheDir, sourceRepoName, tagName)
@@ -72,7 +72,7 @@ func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoNa
 		return err
 	}
 	query := req.URL.Query()
-    query.Add("release_id", fmt.Sprintf("%d", releaseId))
+    query.Add("release_id", fmt.Sprintf("%d", releaseID))
 	req.URL.RawQuery = query.Encode()
 
 	req.Header.Set("Content-Type", "application/octet-stream")

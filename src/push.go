@@ -177,7 +177,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	}
 	fmt.Printf("repo successfully synced `%s`\n", destNwo)
 
-	if flags.PackageSync == true {
+	if flags.PackageSync {
 		fmt.Printf("syncing packages for `%s`\n", destNwo)
 		err = PushPackagesForRepo(flags.CacheDir, flags.GHPatToken, sourceNwo, flags.BaseURL, flags.Token, destNwo, flags.GitHubAPIURL)
 		if err != nil {
