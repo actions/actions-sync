@@ -14,7 +14,6 @@ import (
 
 type PullOnlyFlags struct {
 	SourceURL, GHCRHost string
-	
 }
 
 type PullFlags struct {

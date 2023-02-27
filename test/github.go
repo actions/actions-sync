@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/google/go-github/v43/github"
-	"github.com/gorilla/mux"
 	"html"
 	"io/ioutil"
 	"log"
@@ -14,6 +12,9 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/google/go-github/v43/github"
+	"github.com/gorilla/mux"
 )
 
 var authenticatedLogin string = "monalisa"

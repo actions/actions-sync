@@ -1,10 +1,10 @@
 package src
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"bytes"
 	"os"
 )
 
@@ -34,7 +34,7 @@ func PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, des
 	}
 
 	//Create release on destination
-	releaseID, err:= CreateReleaseForRepoTag(destinationURL, destinationToken, destinationRepoName, release)
+	releaseID, err := CreateReleaseForRepoTag(destinationURL, destinationToken, destinationRepoName, release)
 	if err != nil {
 		return fmt.Errorf("Error creating release for  %s:%s: %s", destinationRepoName, tagName, err)
 	}
@@ -47,42 +47,40 @@ func PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, des
 	return nil
 }
 
-
-
-func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoName, tagName , sourceRepoName string, releaseID int) error {
+func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoName, tagName, sourceRepoName string, releaseID int) error {
 
 	//get package for tag from cacheDir
-	filePath:= fmt.Sprintf("%s/%s-%s.tar.gz", cacheDir, sourceRepoName, tagName)
+	filePath := fmt.Sprintf("%s/%s-%s.tar.gz", cacheDir, sourceRepoName, tagName)
 
 	packageFile, err := os.Open(filePath)
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 	defer packageFile.Close()
 
 	url := fmt.Sprintf("%s/api/v3/repos/%s/actions/package", destinationURL, destinationRepoName)
-	
+
 	fileData, err := ioutil.ReadAll(packageFile)
 	if err != nil {
 		return err
 	}
 
-    req, err := http.NewRequest("POST", url, bytes.NewReader(fileData))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(fileData))
 	if err != nil {
 		return err
 	}
 	query := req.URL.Query()
-    query.Add("release_id", fmt.Sprintf("%d", releaseID))
+	query.Add("release_id", fmt.Sprintf("%d", releaseID))
 	req.URL.RawQuery = query.Encode()
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	
-    resp, err := http.DefaultClient.Do(req)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("Error publishing package on GHES: %s", err)

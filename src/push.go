@@ -24,7 +24,7 @@ const xOAuthScopesHeader = "X-OAuth-Scopes"
 
 type PushOnlyFlags struct {
 	BaseURL, Token, ActionsAdminUser, GitHubAPIURL string
-	DisableGitAuth                   bool
+	DisableGitAuth                                 bool
 }
 
 type PushFlags struct {
@@ -150,7 +150,7 @@ func PushManyWithGitImpl(ctx context.Context, flags *PushFlags, repoNames []stri
 }
 
 func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghClient *github.Client, gitimpl GitImplementation) error {
-	sourceNwo, 	destNwo, err := extractSourceDest(repoName)
+	sourceNwo, destNwo, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 		}
 		fmt.Printf("successfully synced packages for repo `%s`\n", destNwo)
 	}
-	
+
 	return nil
 }
 
