@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -8,12 +9,11 @@ import (
 	"github.com/gorilla/mux"
 	"html"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"path"
 	"strings"
-    "log"
-    "os"
-    "compress/gzip"
 )
 
 var authenticatedLogin string = "monalisa"
@@ -27,14 +27,14 @@ const xOAuthScopesHeader = "X-OAuth-Scopes"
 const packagesMockDataPath = "test/fixtures/packages"
 
 type Release struct {
-	Id int `json:"id"`
-	TagName string `json:"tag_name"`
-	TargetCommitish string `json:"target_commitish"`
-	Name string `json:"name"`
-	Body string `json:"body"`
-	Draft bool `json:"draft"`
-	Prerelease bool `json:"prerelease"`
-	GenerateReleaseNotes bool `json:"generate_release_notes"`
+	Id                   int    `json:"id"`
+	TagName              string `json:"tag_name"`
+	TargetCommitish      string `json:"target_commitish"`
+	Name                 string `json:"name"`
+	Body                 string `json:"body"`
+	Draft                bool   `json:"draft"`
+	Prerelease           bool   `json:"prerelease"`
+	GenerateReleaseNotes bool   `json:"generate_release_notes"`
 }
 
 //nolint:gocyclo
@@ -43,15 +43,15 @@ func main() {
 	flag.StringVar(&port, "p", "", "")
 	flag.StringVar(&gitDaemonURL, "git-daemon-url", "", "")
 	flag.StringVar(&ghcrPort, "ghcr-port", "", "")
-    flag.StringVar(&ghcrURL, "ghcr-url", "", "")
-    flag.StringVar(&ghAPIPort, "gh-api-port", "", "")
-    flag.StringVar(&ghAPIURL, "gh-api-url", "", "")
+	flag.StringVar(&ghcrURL, "ghcr-url", "", "")
+	flag.StringVar(&ghAPIPort, "gh-api-port", "", "")
+	flag.StringVar(&ghAPIURL, "gh-api-url", "", "")
 
 	flag.Parse()
 
 	r := mux.NewRouter()
 	ghcrRouter := mux.NewRouter()
-    ghAPIRouter := mux.NewRouter()
+	ghAPIRouter := mux.NewRouter()
 
 	r.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {})
 	r.HandleFunc("/api/v3", func(w http.ResponseWriter, r *http.Request) {
@@ -59,37 +59,37 @@ func main() {
 		w.Header().Set(xOAuthScopesHeader, "site_admin")
 	})
 
-    r.HandleFunc("/api/v3/repos/{owner}/{repo}/actions/package", func(w http.ResponseWriter, r *http.Request) {
-        w.WriteHeader(http.StatusCreated)
-    }).Methods("POST")
+	r.HandleFunc("/api/v3/repos/{owner}/{repo}/actions/package", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}).Methods("POST")
 
-    r.HandleFunc("/api/v3/repos/{owner}/{repo}/releases", func(w http.ResponseWriter, r *http.Request) {
-    
-        var release Release
-        err := json.NewDecoder(r.Body).Decode(&release)
-        if err != nil {
-            w.WriteHeader(http.StatusBadRequest)
-            fmt.Fprintf(w, "Error decoding request body: %v", err)
-            return
-        }
+	r.HandleFunc("/api/v3/repos/{owner}/{repo}/releases", func(w http.ResponseWriter, r *http.Request) {
 
-        releaseCreationCounter++
+		var release Release
+		err := json.NewDecoder(r.Body).Decode(&release)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Error decoding request body: %v", err)
+			return
+		}
 
-        createdRelease := Release{
-            Id:              releaseCreationCounter,
-            TagName:         release.TagName,
-            TargetCommitish: release.TargetCommitish,
-            Name:            release.Name,
-            Body:            release.Body,
-            Draft:           release.Draft,
-            Prerelease:      release.Prerelease,
-        }
-    
-        // Return the created release in the response.
-        w.WriteHeader(http.StatusCreated)
-        json.NewEncoder(w).Encode(createdRelease)
-        
-    }).Methods("POST")
+		releaseCreationCounter++
+
+		createdRelease := Release{
+			Id:              releaseCreationCounter,
+			TagName:         release.TagName,
+			TargetCommitish: release.TargetCommitish,
+			Name:            release.Name,
+			Body:            release.Body,
+			Draft:           release.Draft,
+			Prerelease:      release.Prerelease,
+		}
+
+		// Return the created release in the response.
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(createdRelease)
+
+	}).Methods("POST")
 
 	r.HandleFunc("/api/v3/user", func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Authorization")
@@ -282,20 +282,15 @@ func main() {
 		}
 	})
 
-
-
 	ghcrRouter.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {})
 
 	ghcrRouter.HandleFunc("/v2/{owner}/{repo}/tags/list", func(w http.ResponseWriter, r *http.Request) {
 
-		owner := mux.Vars(r)["owner"]
-        repo:= mux.Vars(r)["repo"]
-        
-        tagsList, err := ioutil.ReadFile(fmt.Sprintf("%s/%s/%s/%s.json", packagesMockDataPath, owner, repo, "tags-list"))
-        if err != nil {
-            log.Fatal(err)
-        }
-    
+		tagsList, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/%s.json", packagesMockDataPath, "tags-list"))
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		var jsonData map[string]interface{}
 		err = json.Unmarshal(tagsList, &jsonData)
 		if err != nil {
@@ -314,17 +309,20 @@ func main() {
 
 	})
 
-    ghcrRouter.HandleFunc("/v2/{owner}/{repo}/manifests/{tag}", func(w http.ResponseWriter, r *http.Request) {
+	ghcrRouter.HandleFunc("/v2/{owner}/{repo}/manifests/{tag}", func(w http.ResponseWriter, r *http.Request) {
 
-        owner := mux.Vars(r)["owner"]
-        repo:= mux.Vars(r)["repo"]
-        tag := mux.Vars(r)["tag"]
+		tag := mux.Vars(r)["tag"]
 
-        manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/%s/%s/%s-%s.json", packagesMockDataPath, owner, repo, "manifest", tag))
-        if err != nil {
-            log.Fatal(err)
-        }
-    
+		if !isValidInput(tag) {
+			log.Fatal("Invalid input")
+			return
+		}
+
+		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/manifest-%s.json", packagesMockDataPath, tag))
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		var jsonData map[string]interface{}
 		err = json.Unmarshal(manifest, &jsonData)
 		if err != nil {
@@ -343,13 +341,9 @@ func main() {
 
 	})
 
+	ghcrRouter.HandleFunc("/v2/{owner}/{repo}/blobs/{sha}", func(w http.ResponseWriter, r *http.Request) {
 
-    ghcrRouter.HandleFunc("/v2/{owner}/{repo}/blobs/{sha}", func(w http.ResponseWriter, r *http.Request) {
-		
-        owner := mux.Vars(r)["owner"]
-        repo := mux.Vars(r)["repo"]
-
-        file, err := os.Open(fmt.Sprintf("%s/%s/%s/%s.tar.gz", packagesMockDataPath, owner, repo, "layer"))
+		file, err := os.Open(fmt.Sprintf("%s/org/repo/layer.tar.gz", packagesMockDataPath))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -373,22 +367,24 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write(blob)
 
-
 	})
 
-    ghAPIRouter.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {})
+	ghAPIRouter.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {})
 
-    ghAPIRouter.HandleFunc("/repos/{owner}/{repo}/releases/tags/{tag}", func(w http.ResponseWriter, r *http.Request) {
+	ghAPIRouter.HandleFunc("/repos/{owner}/{repo}/releases/tags/{tag}", func(w http.ResponseWriter, r *http.Request) {
+
+		tag := mux.Vars(r)["tag"]
 		
-        owner := mux.Vars(r)["owner"]
-        repo := mux.Vars(r)["repo"]
-        tag := mux.Vars(r)["tag"]
+		if !isValidInput(tag) {
+			log.Fatal("Invalid input")
+			return
+		}
 
-        manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/%s/%s/%s-%s.json", packagesMockDataPath, owner, repo, "release", tag))
-        if err != nil {
-            log.Fatal(err)
-        }
-    
+		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/release-%s.json", packagesMockDataPath, tag))
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		var jsonData map[string]interface{}
 		err = json.Unmarshal(manifest, &jsonData)
 		if err != nil {
@@ -407,22 +403,22 @@ func main() {
 
 	})
 
-    destGitServer := &http.Server{
+	destGitServer := &http.Server{
 		Handler: r,
 		Addr:    ":" + port,
 	}
-    
+
 	ghcrServer := &http.Server{
 		Handler: ghcrRouter,
 		Addr:    ":" + ghcrPort,
 	}
 
-    ghAPIServer := &http.Server{
-        Handler: ghAPIRouter,
-        Addr: ":" + ghAPIPort,
-    }
+	ghAPIServer := &http.Server{
+		Handler: ghAPIRouter,
+		Addr:    ":" + ghAPIPort,
+	}
 
-    //go routines to start multiple servers parallelly
+	//go routines to start multiple servers parallelly
 	go func() {
 		err := destGitServer.ListenAndServe()
 		if err != nil {
@@ -435,7 +431,7 @@ func main() {
 			panic(err)
 		}
 	}()
-    go func() {
+	go func() {
 		err := ghAPIServer.ListenAndServe()
 		if err != nil {
 			panic(err)
@@ -445,4 +441,17 @@ func main() {
 	// Waits for a signal to shutdown the servers.
 	<-make(chan struct{})
 
+}
+
+func isValidInput(input string) bool {
+
+    invalidChars := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+
+    for _, c := range invalidChars {
+        if strings.Contains(input, c) {
+            return false
+        }
+    }
+
+    return true
 }

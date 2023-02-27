@@ -293,8 +293,7 @@ function before_suite() {
 }
 
 function after_suite() {
-  # TODO: Kill GHCR and GH API processes
-  kill "$SRC_GIT_DAEMON_PID" "$DEST_GIT_DAEMON_PID"
+  kill "$SRC_GIT_DAEMON_PID" "$DEST_GIT_DAEMON_PID" "$GH_API_PID"
 }
 
 function setup_src() {

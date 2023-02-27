@@ -84,16 +84,8 @@ func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoNa
     }
     defer resp.Body.Close()
 
-	fmt.Println(resp.Status)
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Println("Error:", err)
-        return err
-    }
-
-    fmt.Println(string(body))
 	if resp.StatusCode != http.StatusCreated {
-		fmt.Printf("Error publishing package on GHES: %s", err)
+		return fmt.Errorf("Error publishing package on GHES: %s", err)
 	}
 
 	return nil
