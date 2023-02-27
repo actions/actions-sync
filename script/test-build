@@ -294,8 +294,7 @@ function before_suite() {
 
 function after_suite() {
   # TODO: Kill GHCR and GH API processes
-  kill "$SRC_GIT_DAEMON_PID"
-  #"$DEST_GIT_DAEMON_PID"
+  kill "$SRC_GIT_DAEMON_PID" "$DEST_GIT_DAEMON_PID"
 }
 
 function setup_src() {
@@ -401,7 +400,8 @@ function push_with_packages() {
     --destination-url "http://localhost:$DEST_API_PORT" \
     --enable-packages-sync  true \
     --gh-pat-token  "gh_1234567890" \
-    --gh-api-url "http://localhost:$GH_API_PORT"
+    --gh-api-url "http://localhost:$GH_API_PORT" \
+    --repo-name $2 \
     &> $OUTPUT ||
     fail "$1"
 }
@@ -446,12 +446,12 @@ function sync_with_packages() {
     --source-url "git://localhost:$SRC_GIT_DAEMON_PORT" \
     --disable-push-git-auth \
     --destination-token "token" \
+    "$1" "$2" \
     --destination-url "http://localhost:$DEST_API_PORT" \
     --enable-packages-sync true \
     --gh-pat-token  "gh_1234567890" \
-    --gh-api-url "http://localhost:$GH_API_PORT"
+    --gh-api-url "http://localhost:$GH_API_PORT" \
     --ghcr-url "http://localhost:$GHCR_API_PORT" \
-    "$1" "$2" \
     &> $OUTPUT ||
     fail $3
 }
@@ -508,4 +508,4 @@ test_push
 test_sync
 test_pull_with_packages
 test_push_with_packages
-test_sync_with_package
+test_sync_with_packages
