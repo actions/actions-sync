@@ -59,6 +59,10 @@ func main() {
 		w.Header().Set(xOAuthScopesHeader, "site_admin")
 	})
 
+    r.HandleFunc("/api/v3/repos/{owner}/{repo}/actions/package", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusCreated)
+    }).Methods("POST")
+
     r.HandleFunc("/api/v3/repos/{owner}/{repo}/releases", func(w http.ResponseWriter, r *http.Request) {
     
         var release Release

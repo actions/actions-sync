@@ -232,6 +232,13 @@ function test_sync() {
   echo "all sync tests passed successfully"
 }
 
+function test_sync_with_packages() {
+  setup_src "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  sync_with_packages --repo-name "org/repo"
+  assert_package_tags_file "org/repo" "[\"1.0.0\",\"1.0.1\",\"1.0.2\"]"
+  echo "all sync tests with packages passed successfully"
+}
+
 function before_suite() {
   set -e
   $(
@@ -433,6 +440,23 @@ function sync() {
     fail $3
 }
 
+function sync_with_packages() {
+  bin/actions-sync sync \
+    --cache-dir "test/tmp/cache" \
+    --source-url "git://localhost:$SRC_GIT_DAEMON_PORT" \
+    --disable-push-git-auth \
+    --destination-token "token" \
+    --destination-url "http://localhost:$DEST_API_PORT" \
+    --enable-packages-sync true \
+    --gh-pat-token  "gh_1234567890" \
+    --gh-api-url "http://localhost:$GH_API_PORT"
+    --ghcr-url "http://localhost:$GHCR_API_PORT" \
+    "$1" "$2" \
+    &> $OUTPUT ||
+    fail $3
+}
+
+
 function assert_cache_sha() {
   nwo=$1
   ref=$2
@@ -484,4 +508,4 @@ test_push
 test_sync
 test_pull_with_packages
 test_push_with_packages
-#test_sync_with_package
+test_sync_with_package
