@@ -8,29 +8,27 @@ import (
 	"os"
 )
 
-func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, destinationToken, destinationRepoName string) error {
+func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, destinationToken, destinationRepoName, ghAPIUrl string) error {
 
-	ghPatTokenBase64Encoded := Base64Encode(ghPatToken)
-
-	tags, err:= GetPackageTagsListFromGHCR(sourceRepoName, ghPatTokenBase64Encoded)
+	tags, err := ReadValidPackageTagsFromCache(cacheDir, sourceRepoName)
 	if err != nil {
-		return fmt.Errorf("Error getting list of tags for packages: %s", err)
+		return fmt.Errorf("Error getting list of tags for packages for repo %s: %s", sourceRepoName, err)
 	}
 
 	for _, tag := range tags {
-		err = PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tag)
+		err = PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tag, ghAPIUrl)
 		if err != nil {
-			return err
+			return fmt.Errorf("Error pushing package for tag %s: %s", tag, err)
 		}
 	}
 
 	return nil
 }
 
-func PushPackageForTag(cacheDir, sourceRepoName, ghPATToken, destinationURL, destinationToken, destinationRepoName, tagName string) error {
+func PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tagName, ghAPIUrl string) error {
 
 	//Get release for tag from github
-	release, err := GetReleaseForRepoTag(sourceRepoName, tagName, ghPATToken)
+	release, err := GetReleaseForRepoTag(sourceRepoName, tagName, ghPatToken, ghAPIUrl)
 	if err != nil {
 		return fmt.Errorf("Error getting release for tag %s: %s", tagName, err)
 	}
@@ -38,17 +36,13 @@ func PushPackageForTag(cacheDir, sourceRepoName, ghPATToken, destinationURL, des
 	//Create release on destination
 	releaseId, err:= CreateReleaseForRepoTag(destinationURL, destinationToken, destinationRepoName, release)
 	if err != nil {
-		return fmt.Errorf("Error creating release for tag %s: %s", tagName, err)
-	}
-	if releaseId == 0 {
-		//release and package already published so will be skipped as package overwrite is not supported
-		return nil
+		return fmt.Errorf("Error creating release for  %s:%s: %s", destinationRepoName, tagName, err)
 	}
 
 	//Push the package to destination
 	err = PushPackageToDestination(cacheDir, destinationURL, destinationToken, destinationRepoName, tagName, sourceRepoName, releaseId)
 	if err != nil {
-		return fmt.Errorf("Error pushing package for tag %s: %s", tagName, err)
+		return fmt.Errorf("Error pushing package for tag %s to GHES: %s", tagName, err)
 	}
 	return nil
 }
@@ -90,14 +84,14 @@ func PushPackageToDestination(cacheDir, destinationURL, token, destinationRepoNa
     }
     defer resp.Body.Close()
 
-	// fmt.Println(resp.Status)
-	// body, err := ioutil.ReadAll(resp.Body)
-    // if err != nil {
-    //     fmt.Println("Error:", err)
-    //     return err
-    // }
+	fmt.Println(resp.Status)
+	body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        fmt.Println("Error:", err)
+        return err
+    }
 
-    // fmt.Println(string(body))
+    fmt.Println(string(body))
 	if resp.StatusCode != http.StatusCreated {
 		fmt.Printf("Error publishing package on GHES: %s", err)
 	}

@@ -1,0 +1,28 @@
+{
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+        "mediaType": "application/vnd.github.actions.package.config.v1+json",
+        "size": 0,
+        "digest": "sha256:9g00000000000000000000000000000000000000000000000c"
+    },
+    "layers": [
+        {
+            "mediaType": "application/vnd.github.actions.package.layer.v1.tar+gzip",
+            "size": 100,
+            "digest": "sha256:b900000000000000000000000000000000000000000000e"
+        },
+        {
+            "mediaType": "application/vnd.github.actions.package.layer.v1.zip",
+            "size": 200,
+            "digest": "sha256:bd0000000000000000000000000000000000000000000d"
+        }
+    ],
+    "annotations": {
+        "com.github.package.type": "actions_oci_pkg",
+        "org.opencontainers.image.sourcecommit": "60000000000000000000000000000000000000000000b",
+        "org.opencontainers.image.contentpath": "/",
+        "action.tar.gz.digest": "sha256:b90000000000000000000000000000000000000000000e",
+        "action.zip.digest": "sha256:bd0000000000000000000000000000000000000000000d"
+    }
+}

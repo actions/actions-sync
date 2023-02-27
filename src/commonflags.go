@@ -17,8 +17,9 @@ func (f *CommonFlags) Init(cmd *cobra.Command) {
     cmd.Flags().StringVar(&f.RepoName, "repo-name", "", "Single repository name to pull")
     cmd.Flags().StringVar(&f.RepoNameList, "repo-name-list", "", "Comma delimited list of repository names to pull")
     cmd.Flags().StringVar(&f.RepoNameListFile, "repo-name-list-file", "", "Path to file containing a list of repository names to pull")
-    cmd.Flags().BoolVar(&f.PackageSync, "packages", false, "Flag to enable syncing packages for the repository")
+    cmd.Flags().BoolVar(&f.PackageSync, "enable-packages-sync", false, "Flag to enable syncing packages for the repository") //This flag is by default false for now as this feature would go GA in GHES 3.10
     cmd.Flags().StringVar(&f.GHPatToken, "gh-pat-token","","GitHub.com PAT token for packages pull")
+	
 }
 
 func (f *CommonFlags) Validate(reposRequired bool) Validations {

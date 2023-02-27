@@ -23,7 +23,7 @@ const enterpriseVersionHeaderKey = "X-GitHub-Enterprise-Version"
 const xOAuthScopesHeader = "X-OAuth-Scopes"
 
 type PushOnlyFlags struct {
-	BaseURL, Token, ActionsAdminUser string
+	BaseURL, Token, ActionsAdminUser, GitHubAPIURL string
 	DisableGitAuth                   bool
 }
 
@@ -42,6 +42,7 @@ func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
+	cmd.Flags().StringVar(&f.GitHubAPIURL, "gh-api-url", "https://api.github.com", "API URL for GitHub.com")
 }
 
 func (f *PushFlags) Validate() Validations {
@@ -149,40 +150,40 @@ func PushManyWithGitImpl(ctx context.Context, flags *PushFlags, repoNames []stri
 }
 
 func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghClient *github.Client, gitimpl GitImplementation) error {
-	_, nwo, err := extractSourceDest(repoName)
+	sourceNwo, 	destNwo, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
 	}
 
-	ownerName, bareRepoName, err := splitNwo(nwo)
+	ownerName, bareRepoName, err := splitNwo(destNwo)
 	if err != nil {
 		return err
 	}
 
-	repoDirPath := path.Join(flags.CacheDir, nwo)
+	repoDirPath := path.Join(flags.CacheDir, destNwo)
 	_, err = os.Stat(repoDirPath)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("syncing `%s`\n", nwo)
+	fmt.Printf("syncing `%s`\n", destNwo)
 	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, bareRepoName, ownerName)
 	if err != nil {
-		return errors.Wrapf(err, "error creating github repository `%s`", nwo)
+		return errors.Wrapf(err, "error creating github repository `%s`", destNwo)
 	}
 	err = syncWithCachedRepository(ctx, flags, ghRepo, repoDirPath, gitimpl)
 	if err != nil {
-		return errors.Wrapf(err, "error syncing repository `%s`", nwo)
+		return errors.Wrapf(err, "error syncing repository `%s`", destNwo)
 	}
-	fmt.Printf("repo successfully synced `%s`\n", nwo)
+	fmt.Printf("repo successfully synced `%s`\n", destNwo)
 
 	if flags.PackageSync == true {
-		fmt.Printf("syncing packages for `%s`\n", nwo)
-		err = PushPackagesForRepo(flags.CacheDir, flags.GHPatToken, repoName, flags.BaseURL, flags.Token, nwo)
+		fmt.Printf("syncing packages for `%s`\n", destNwo)
+		err = PushPackagesForRepo(flags.CacheDir, flags.GHPatToken, sourceNwo, flags.BaseURL, flags.Token, destNwo, flags.GitHubAPIURL)
 		if err != nil {
-			return errors.Wrapf(err, "error syncing packages for repository `%s`", nwo)
+			return errors.Wrapf(err, "error syncing packages for repository `%s`", destNwo)
 		}
-		fmt.Printf("successfully synced packages for repo `%s`\n", repoName)
+		fmt.Printf("successfully synced packages for repo `%s`\n", destNwo)
 	}
 	
 	return nil

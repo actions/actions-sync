@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
+	"os"
 )
 
 type Tags struct {
@@ -33,10 +34,10 @@ type Release struct {
 	GenerateReleaseNotes bool `json:"generate_release_notes"`
 }
 
-func GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded string) ([]string, error) {
+func GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded, ghcrHost string) ([]string, error) {
 
 	//Get the list of tags for the repo packages from GHCR
-	url := fmt.Sprintf("https://ghcr.io/v2/%s/tags/list", repoName)
+	url := fmt.Sprintf("%s/v2/%s/tags/list", ghcrHost, repoName)
     req, err := http.NewRequest("GET", url, nil)
     if err != nil {
         return nil, fmt.Errorf("Error getting list of tags for packages: %s", err)
@@ -63,9 +64,9 @@ func GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded string) ([]str
 	return tags.Tags, nil
 }
 
-func GetLayerDigestFromGHCR(repoName, tagName, ghPatTokenBase64Encoded string) (string, error) {
+func GetLayerDigestFromGHCR(repoName, tagName, ghPatTokenBase64Encoded, ghcrHost string) (string, error) {
 	
-    url := fmt.Sprintf("https://ghcr.io/v2/%s/manifests/%s", repoName, tagName)
+    url := fmt.Sprintf("%s/v2/%s/manifests/%s", ghcrHost, repoName, tagName)
 
     req, err := http.NewRequest("GET", url, nil)
     if err != nil {
@@ -102,7 +103,7 @@ func GetLayerDigestFromGHCR(repoName, tagName, ghPatTokenBase64Encoded string) (
 func CreateReleaseForRepoTag(destinationURL, token, repoName string, release Release) (int, error) {
 
 	url := fmt.Sprintf("%s/api/v3/repos/%s/releases", destinationURL, repoName)
-
+	fmt.Println(url)
 	newRelease := Release{
 		TagName: release.TagName,
 		TargetCommitish: release.TargetCommitish,
@@ -129,12 +130,17 @@ func CreateReleaseForRepoTag(destinationURL, token, repoName string, release Rel
     }
     defer res.Body.Close()
 
+	//Release already exists
 	if res.StatusCode == http.StatusUnprocessableEntity {
-		//Release already exists so skip
 		return 0, nil
 	}
 	if res.StatusCode != http.StatusCreated {
-		return 0, fmt.Errorf("Error creating new release on GHES: %s", res.Status)
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return 0, fmt.Errorf("Failed to read response: %s", err)
+		}
+
+		return 0, fmt.Errorf("Error creating new release on GHES: %s:%s", res.Status, body)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
@@ -151,9 +157,9 @@ func CreateReleaseForRepoTag(destinationURL, token, repoName string, release Rel
 
 	 return generatedRelease.Id, nil
 }
-func GetReleaseForRepoTag(repoName, tagName, ghPATToken string) (Release, error) {
+func GetReleaseForRepoTag(repoName, tagName, ghPATToken, ghAPIUrl string) (Release, error) {
 
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", repoName, tagName)
+	url := fmt.Sprintf("%s/repos/%s/releases/tags/%s", ghAPIUrl, repoName, tagName)
 	var release Release
 
     req, err := http.NewRequest("GET", url, nil)
@@ -170,7 +176,7 @@ func GetReleaseForRepoTag(repoName, tagName, ghPATToken string) (Release, error)
     defer res.Body.Close()
 
     if res.StatusCode != http.StatusOK {
-        return release, fmt.Errorf("Unexpected status code: %d", res.StatusCode)
+        return release, fmt.Errorf("Unexpected status code: %d : %s", res.StatusCode, res.Status)
     }
 
 	body, err := ioutil.ReadAll(res.Body)
@@ -184,6 +190,55 @@ func GetReleaseForRepoTag(repoName, tagName, ghPATToken string) (Release, error)
 	}
 
 	return release, nil
+
+}
+
+func WriteValidPackageTagsToCache(cacheDir, repoName string, tags []string) error {
+	
+	// Open a new file for writing
+	file, err := os.Create(fmt.Sprintf("%s/%s/tags.txt", cacheDir, repoName))
+    if err != nil {
+        return fmt.Errorf("Error creating cache file: %s", err)
+    }
+    defer file.Close()
+
+    // Marshal the array to JSON-encoded byte slice
+    jsonData, err := json.Marshal(tags)
+    if err != nil {
+        return fmt.Errorf("Error marshalling tags to JSON: %s", err)
+    }
+
+    // Write the JSON-encoded data to the file
+    _, err = file.Write(jsonData)
+    if err != nil {
+        return fmt.Errorf("Error writing tags to cache file: %s", err)
+    }
+
+	return nil
+}
+
+func ReadValidPackageTagsFromCache(cacheDir, repoName string) ([]string, error){
+
+	file, err := os.Open(fmt.Sprintf("%s/%s/tags.txt", cacheDir, repoName))
+    if err != nil {
+        return nil, fmt.Errorf("Error opening cache file: %s", err)
+    }
+    defer file.Close()
+
+	// Read the data from the file
+	jsonData, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading cache file: %s", err)
+	}
+
+	// Unmarshal the JSON-encoded data into an array of strings
+	var tags []string
+	err = json.Unmarshal(jsonData, &tags)
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshalling JSON: %s", err)
+	}
+
+	return tags, nil
 
 }
 

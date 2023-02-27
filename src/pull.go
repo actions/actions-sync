@@ -13,7 +13,8 @@ import (
 )
 
 type PullOnlyFlags struct {
-	SourceURL string
+	SourceURL, GHCRHost string
+	
 }
 
 type PullFlags struct {
@@ -28,6 +29,7 @@ func (f *PullFlags) Init(cmd *cobra.Command) {
 
 func (f *PullOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.SourceURL, "source-url", "https://github.com", "The domain to pull from")
+	cmd.Flags().StringVar(&f.GHCRHost, "ghcr-url", "https://ghcr.io", "Host for the GitHub Container Registry")
 }
 
 func (f *PullFlags) Validate() Validations {
@@ -45,19 +47,19 @@ func Pull(ctx context.Context, flags *PullFlags) error {
 		return err
 	}
 
-	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, flags.CommonFlags.GHPatToken, flags.CommonFlags.PackageSync, repoNames, gitImplementation{})
+	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, flags.CommonFlags.GHPatToken, flags.PullOnlyFlags.GHCRHost, flags.CommonFlags.PackageSync, repoNames, gitImplementation{})
 }
 
-func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken string, packageSync bool, repoNames []string, gitimpl GitImplementation) error {
+func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken, ghcrHost string, packageSync bool, repoNames []string, gitimpl GitImplementation) error {
 	for _, repoName := range repoNames {
-		if err := PullWithGitImpl(ctx, sourceURL, cacheDir, ghPatToken, repoName, packageSync, gitimpl); err != nil {
+		if err := PullWithGitImpl(ctx, sourceURL, cacheDir, ghPatToken, repoName, ghcrHost, packageSync, gitimpl); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken, repoName string, packageSync bool, gitimpl GitImplementation) error {
+func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken, repoName, ghcrHost string, packageSync bool, gitimpl GitImplementation) error {
 	originRepoName, destRepoName, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
@@ -101,7 +103,7 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir, ghPatToken, repoN
 	}
 
 	if packageSync == true {
-		err = PullPackagesForRepo(cacheDir, repoName, ghPatToken)
+		err = PullPackagesForRepo(cacheDir, originRepoName, ghPatToken, ghcrHost)
 		if err != nil {
 			return fmt.Errorf("Could not pull packages for %s: %w", repoName, err)
 		}
