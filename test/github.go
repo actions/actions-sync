@@ -29,6 +29,7 @@ const packagesMockDataPath = "test/fixtures/packages"
 const tag1 = "1.0.0"
 const tag2 = "1.0.1"
 const tag3 = "1.0.2"
+
 type Release struct {
 	ID                   int    `json:"id"`
 	TagName              string `json:"tag_name"`
@@ -331,7 +332,7 @@ func main() {
 		case tag3:
 			manifestTag = tag3
 		}
-		
+
 		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/manifest-%s.json", packagesMockDataPath, manifestTag))
 		if err != nil {
 			log.Fatal(err)
