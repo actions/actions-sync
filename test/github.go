@@ -320,6 +320,7 @@ func main() {
 		tag := mux.Vars(r)["tag"]
 
 		var manifestTag string
+		
 		switch tag {
 		case "1.0.0":
 			manifestTag = "1.0.0"
@@ -327,6 +328,7 @@ func main() {
 			manifestTag = "1.0.1"
 		case "1.0.2":
 			manifestTag = "1.0.2"
+		}
 		
 		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/manifest-%s.json", packagesMockDataPath, manifestTag))
 		if err != nil {
@@ -390,6 +392,7 @@ func main() {
 		tag := mux.Vars(r)["tag"]
 
 		var manifestTag string
+
 		switch tag {
 		case "1.0.0":
 			manifestTag = "1.0.0"
@@ -397,6 +400,7 @@ func main() {
 			manifestTag = "1.0.1"
 		case "1.0.2":
 			manifestTag = "1.0.2"
+		}
 
 		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/release-%s.json", packagesMockDataPath, manifestTag))
 		if err != nil {
