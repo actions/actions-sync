@@ -26,7 +26,9 @@ const ghaeRepo string = "ghae-repo"
 const xOAuthScopesHeader = "X-OAuth-Scopes"
 
 const packagesMockDataPath = "test/fixtures/packages"
-
+const tag1 = "1.0.0"
+const tag2 = "1.0.1"
+const tag3 = "1.0.2"
 type Release struct {
 	ID                   int    `json:"id"`
 	TagName              string `json:"tag_name"`
@@ -320,14 +322,14 @@ func main() {
 		tag := mux.Vars(r)["tag"]
 
 		var manifestTag string
-		
+
 		switch tag {
-		case "1.0.0":
-			manifestTag = "1.0.0"
-		case "1.0.1":
-			manifestTag = "1.0.1"
-		case "1.0.2":
-			manifestTag = "1.0.2"
+		case tag1:
+			manifestTag = tag1
+		case tag2:
+			manifestTag = tag2
+		case tag3:
+			manifestTag = tag3
 		}
 		
 		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/manifest-%s.json", packagesMockDataPath, manifestTag))
@@ -394,12 +396,12 @@ func main() {
 		var manifestTag string
 
 		switch tag {
-		case "1.0.0":
-			manifestTag = "1.0.0"
-		case "1.0.1":
-			manifestTag = "1.0.1"
-		case "1.0.2":
-			manifestTag = "1.0.2"
+		case tag1:
+			manifestTag = tag1
+		case tag2:
+			manifestTag = tag2
+		case tag3:
+			manifestTag = tag3
 		}
 
 		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/release-%s.json", packagesMockDataPath, manifestTag))
