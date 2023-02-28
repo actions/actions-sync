@@ -319,12 +319,16 @@ func main() {
 
 		tag := mux.Vars(r)["tag"]
 
-		if !isValidInput(tag) {
-			log.Fatal("Invalid input")
-			return
-		}
-
-		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/manifest-%s.json", packagesMockDataPath, tag))
+		var manifestTag string
+		switch tag {
+		case "1.0.0":
+			manifestTag = "1.0.0"
+		case "1.0.1":
+			manifestTag = "1.0.1"
+		case "1.0.2":
+			manifestTag = "1.0.2"
+		
+		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/manifest-%s.json", packagesMockDataPath, manifestTag))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -385,12 +389,16 @@ func main() {
 
 		tag := mux.Vars(r)["tag"]
 
-		if !isValidInput(tag) {
-			log.Fatal("Invalid input")
-			return
-		}
+		var manifestTag string
+		switch tag {
+		case "1.0.0":
+			manifestTag = "1.0.0"
+		case "1.0.1":
+			manifestTag = "1.0.1"
+		case "1.0.2":
+			manifestTag = "1.0.2"
 
-		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/release-%s.json", packagesMockDataPath, tag))
+		manifest, err := ioutil.ReadFile(fmt.Sprintf("%s/org/repo/release-%s.json", packagesMockDataPath, manifestTag))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -451,17 +459,4 @@ func main() {
 	// Waits for a signal to shutdown the servers.
 	<-make(chan struct{})
 
-}
-
-func isValidInput(input string) bool {
-
-	invalidChars := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
-
-	for _, c := range invalidChars {
-		if strings.Contains(input, c) {
-			return false
-		}
-	}
-
-	return true
 }
