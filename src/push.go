@@ -95,7 +95,13 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 		fmt.Printf("running against GitHub AE, changing the repository scope to '%s' ...\n", minimumRepositoryScope)
 	}
 
-	impersonationToken, _, err := ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
+	var impersonationToken *github.UserAuthorization
+
+	if flags.PackageSync {
+		impersonationToken, _, err = ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow", "write:packages"}})	
+	}
+
+	impersonationToken, _, err = ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to impersonate Actions admin user.")
 	}

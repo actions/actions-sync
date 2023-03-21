@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sync"
 )
 
 func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, destinationToken, destinationRepoName, ghAPIUrl string) error {
@@ -15,12 +16,21 @@ func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, d
 		return fmt.Errorf("Error getting list of tags for packages for repo %s: %s", sourceRepoName, err)
 	}
 
-	for _, tag := range tags {
-		err = PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tag, ghAPIUrl)
-		if err != nil {
-			return fmt.Errorf("Error pushing package for tag %s: %s", tag, err)
+	noOfTags := len(tags)
+	var wg sync.WaitGroup
+	wg.Add(noOfTags)
+	
+	for i := 0; i < noOfTags; i++ {
+		go func(i int) {
+			defer wg.Done()
+			tag := tags[i]
+			err = PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tag, ghAPIUrl)
+			if err != nil {
+			fmt.Printf("Error pushing package for tag %s: %s", tag, err)
 		}
+		}(i)
 	}
+	wg.Wait()
 
 	return nil
 }

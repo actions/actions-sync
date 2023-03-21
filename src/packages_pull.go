@@ -8,11 +8,11 @@ import (
 
 func PullPackagesForRepo(cacheDir, repoName, ghPatToken, ghcrHost string) error {
 
-	// Get the list of tags for the repo
 	fmt.Fprintf(os.Stdout, "Pulling packages for repo: %s \n", repoName)
 
 	ghPatTokenBase64Encoded := Base64Encode(ghPatToken)
 
+	// Get the list of tags for the repo
 	tags, err := GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded, ghcrHost)
 	if err != nil {
 		return fmt.Errorf("Error getting list of tags for packages: %s", err)

@@ -103,7 +103,7 @@ func GetLayerDigestFromGHCR(repoName, tagName, ghPatTokenBase64Encoded, ghcrHost
 func CreateReleaseForRepoTag(destinationURL, token, repoName string, release Release) (int, error) {
 
 	url := fmt.Sprintf("%s/api/v3/repos/%s/releases", destinationURL, repoName)
-	fmt.Println(url)
+	
 	newRelease := Release{
 		TagName:              release.TagName,
 		TargetCommitish:      release.TargetCommitish,
