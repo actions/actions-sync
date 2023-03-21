@@ -19,15 +19,15 @@ func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, d
 	noOfTags := len(tags)
 	var wg sync.WaitGroup
 	wg.Add(noOfTags)
-	
+
 	for i := 0; i < noOfTags; i++ {
 		go func(i int) {
 			defer wg.Done()
 			tag := tags[i]
 			err = PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tag, ghAPIUrl)
 			if err != nil {
-			fmt.Printf("Error pushing package for tag %s: %s", tag, err)
-		}
+				fmt.Printf("Error pushing package for tag %s: %s", tag, err)
+			}
 		}(i)
 	}
 	wg.Wait()

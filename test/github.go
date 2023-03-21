@@ -18,7 +18,7 @@ import (
 )
 
 var authenticatedLogin string = "monalisa"
-var releaseCreationCounter int = 0
+var releaseCreationCounter = 0
 
 const existingOrg string = "org-already-exists"
 const existingRepo string = "repo-already-exists"

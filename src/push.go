@@ -98,7 +98,7 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 	var impersonationToken *github.UserAuthorization
 
 	if flags.PackageSync {
-		impersonationToken, _, err = ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow", "write:packages"}})	
+		impersonationToken, _, err = ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow", "write:packages"}})
 	}
 
 	impersonationToken, _, err = ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
