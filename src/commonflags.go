@@ -7,7 +7,7 @@ import (
 // flags common to pull, push and sync operations
 type CommonFlags struct {
 	CacheDir, RepoName, RepoNameList, RepoNameListFile, SourceToken string
-	PackageSync                                                    bool
+	PackageSync                                                     bool
 }
 
 func (f *CommonFlags) Init(cmd *cobra.Command) {
