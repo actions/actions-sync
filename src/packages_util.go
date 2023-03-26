@@ -34,7 +34,7 @@ type Release struct {
 	GenerateReleaseNotes bool   `json:"generate_release_notes"`
 }
 
-func GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded, ghcrHost string) ([]string, error) {
+func GetPackageTagsListFromGHCR(repoName, sourceTokenBase64Encoded, ghcrHost string) ([]string, error) {
 
 	//Get the list of tags for the repo packages from GHCR
 	url := fmt.Sprintf("%s/v2/%s/tags/list", ghcrHost, repoName)
@@ -43,7 +43,7 @@ func GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded, ghcrHost stri
 		return nil, fmt.Errorf("Error getting list of tags for packages: %s", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghPatTokenBase64Encoded))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sourceTokenBase64Encoded))
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -64,7 +64,7 @@ func GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded, ghcrHost stri
 	return tags.Tags, nil
 }
 
-func GetLayerDigestFromGHCR(repoName, tagName, ghPatTokenBase64Encoded, ghcrHost string) (string, error) {
+func GetLayerDigestFromGHCR(repoName, tagName, sourceTokenBase64Encoded, ghcrHost string) (string, error) {
 
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", ghcrHost, repoName, tagName)
 
@@ -74,7 +74,7 @@ func GetLayerDigestFromGHCR(repoName, tagName, ghPatTokenBase64Encoded, ghcrHost
 	}
 
 	req.Header.Set("Accept", "application/vnd.oci.image.manifest.v1+json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghPatTokenBase64Encoded))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sourceTokenBase64Encoded))
 
 	res, err := http.DefaultClient.Do(req)
 
@@ -157,7 +157,7 @@ func CreateReleaseForRepoTag(destinationURL, token, repoName string, release Rel
 
 	return generatedRelease.ID, nil
 }
-func GetReleaseForRepoTag(repoName, tagName, ghPATToken, ghAPIUrl string) (Release, error) {
+func GetReleaseForRepoTag(repoName, tagName, sourceToken, ghAPIUrl string) (Release, error) {
 
 	url := fmt.Sprintf("%s/repos/%s/releases/tags/%s", ghAPIUrl, repoName, tagName)
 	var release Release
@@ -166,7 +166,7 @@ func GetReleaseForRepoTag(repoName, tagName, ghPATToken, ghAPIUrl string) (Relea
 	if err != nil {
 		return release, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghPATToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sourceToken))
 	res, err := http.DefaultClient.Do(req)
 
 	if err != nil {

@@ -186,7 +186,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 
 	if flags.PackageSync {
 		fmt.Printf("syncing packages for `%s`\n", destNwo)
-		err = PushPackagesForRepo(flags.CacheDir, flags.GHPatToken, sourceNwo, flags.BaseURL, flags.Token, destNwo, flags.GitHubAPIURL)
+		err = PushPackagesForRepo(flags.CacheDir, flags.SourceToken, sourceNwo, flags.BaseURL, flags.Token, destNwo, flags.GitHubAPIURL)
 		if err != nil {
 			return errors.Wrapf(err, "error syncing packages for repository `%s`", destNwo)
 		}

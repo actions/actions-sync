@@ -6,14 +6,14 @@ import (
 	"os"
 )
 
-func PullPackagesForRepo(cacheDir, repoName, ghPatToken, ghcrHost string) error {
+func PullPackagesForRepo(cacheDir, repoName, sourceToken, ghcrHost string) error {
 
 	fmt.Fprintf(os.Stdout, "Pulling packages for repo: %s \n", repoName)
 
-	ghPatTokenBase64Encoded := Base64Encode(ghPatToken)
+	sourceTokenBase64Encoded := Base64Encode(sourceToken)
 
 	// Get the list of tags for the repo
-	tags, err := GetPackageTagsListFromGHCR(repoName, ghPatTokenBase64Encoded, ghcrHost)
+	tags, err := GetPackageTagsListFromGHCR(repoName, sourceTokenBase64Encoded, ghcrHost)
 	if err != nil {
 		return fmt.Errorf("Error getting list of tags for packages: %s", err)
 	}
@@ -21,7 +21,7 @@ func PullPackagesForRepo(cacheDir, repoName, ghPatToken, ghcrHost string) error 
 	var validTags []string
 	//Pull package for each tag from GHCR
 	for _, tag := range tags {
-		err = PullPackageForTag(repoName, tag, ghPatTokenBase64Encoded, cacheDir, ghcrHost)
+		err = PullPackageForTag(repoName, tag, sourceTokenBase64Encoded, cacheDir, ghcrHost)
 		if err != nil {
 			return fmt.Errorf("Error getting package: %s", err)
 		}
@@ -36,16 +36,16 @@ func PullPackagesForRepo(cacheDir, repoName, ghPatToken, ghcrHost string) error 
 	return nil
 }
 
-func PullPackageForTag(repoName, tagName, ghPatTokenBase64Encoded, cacheDir, ghcrHost string) error {
+func PullPackageForTag(repoName, tagName, sourceTokenBase64Encoded, cacheDir, ghcrHost string) error {
 
 	// Get the layer digest package
-	targzLayerDigest, err := GetLayerDigestFromGHCR(repoName, tagName, ghPatTokenBase64Encoded, ghcrHost)
+	targzLayerDigest, err := GetLayerDigestFromGHCR(repoName, tagName, sourceTokenBase64Encoded, ghcrHost)
 	if err != nil {
 		return fmt.Errorf("Error getting layer digest for tag: %s", err)
 	}
 
 	// Get package from layer digest
-	err = PullPackageFromLayerDigest(repoName, targzLayerDigest, tagName, ghPatTokenBase64Encoded, cacheDir, ghcrHost)
+	err = PullPackageFromLayerDigest(repoName, targzLayerDigest, tagName, sourceTokenBase64Encoded, cacheDir, ghcrHost)
 	if err != nil {
 		return fmt.Errorf("Error pulling package from layer digest: %s", err)
 	}
@@ -53,7 +53,7 @@ func PullPackageForTag(repoName, tagName, ghPatTokenBase64Encoded, cacheDir, ghc
 	return nil
 }
 
-func PullPackageFromLayerDigest(repoName, targzLayerDigestSHA, tagName, ghPatTokenBase64Encoded, cacheDir, ghcrHost string) error {
+func PullPackageFromLayerDigest(repoName, targzLayerDigestSHA, tagName, sourceTokenBase64Encoded, cacheDir, ghcrHost string) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s", ghcrHost, repoName, targzLayerDigestSHA)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -61,7 +61,7 @@ func PullPackageFromLayerDigest(repoName, targzLayerDigestSHA, tagName, ghPatTok
 		return err
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghPatTokenBase64Encoded))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sourceTokenBase64Encoded))
 
 	res, err := http.DefaultClient.Do(req)
 

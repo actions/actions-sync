@@ -38,6 +38,10 @@ When there are machines which have access to both the public internet and the GH
    A path to a file containing a newline separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `actions-admin-user` _(optional)_
    The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
+- `enable-packages-sync` _(optional)_
+   A boolean value to enable syncing of corresponding packages of a repository. If not passed, it's default value is false.
+- `source-token` _(optional)_
+   A personal access token to authenticate against GitHub.com/GHCR for downloading packages. This is required if `enable-packages-sync` is set to true.
 
 **Example Usage:**
 
@@ -47,6 +51,8 @@ When there are machines which have access to both the public internet and the GH
     --destination-token "token" \
     --destination-url "https://www.example.com" \
     --repo-name actions/setup-node
+    --enable-packages-sync true
+    --source-token "sourcetoken"
 ```
 
 ## Not connected instances
@@ -71,6 +77,10 @@ When no machine has access to both the public internet and the GHES instance:
    A comma-separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `repo-name-list-file` _(optional)_
    A path to a file containing a newline separated list of repositories to be synced. Each entry follows the format of `repo-name`.
+- `enable-packages-sync` _(optional)_
+   A boolean value to enable syncing of corresponding packages of a repository. If not passed, it's default value is false.
+- `source-token` _(optional)_
+   A personal access token to authenticate against GitHub.com/GHCR for downloading packages. This is required if `enable-packages-sync` is set to true.
 
 **Example Usage:**
 
@@ -96,6 +106,10 @@ When no machine has access to both the public internet and the GHES instance:
    Limit push to specific repositories in the cache directory.
 - `actions-admin-user` _(optional)_
    The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
+- `enable-packages-sync` _(optional)_
+   A boolean value to enable syncing of corresponding packages of a repository. If not passed, it's default value is false.
+- `source-token` _(optional)_
+   A personal access token to authenticate against GitHub.com/GHCR for downloading packages. This is required if `enable-packages-sync` is set to true.
 
 **Example Usage:**
 
@@ -109,6 +123,12 @@ When no machine has access to both the public internet and the GHES instance:
 ## Destination token scopes
 
 When creating a personal access token include the `repo` and `workflow` scopes. Include the `site_admin` scope (optional) if you want organizations to be created as necessary or you want to use the impersonation logic for the `push` or `sync` commands.
+Include the `write:packages` scope (optional) is you want to sync packages for the given repository(ies).
+
+
+## Source token scopes (optional)
+
+When creating a personal access token include the `repo` and `read:packages` if you've enabled packages sync for repository(ies).
 
 ## Contributing
 

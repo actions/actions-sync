@@ -6,7 +6,7 @@ import (
 
 // flags common to pull, push and sync operations
 type CommonFlags struct {
-	CacheDir, RepoName, RepoNameList, RepoNameListFile, GHPatToken string
+	CacheDir, RepoName, RepoNameList, RepoNameListFile, SourceToken string
 	PackageSync                                                    bool
 }
 
@@ -18,7 +18,7 @@ func (f *CommonFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.RepoNameList, "repo-name-list", "", "Comma delimited list of repository names to pull")
 	cmd.Flags().StringVar(&f.RepoNameListFile, "repo-name-list-file", "", "Path to file containing a list of repository names to pull")
 	cmd.Flags().BoolVar(&f.PackageSync, "enable-packages-sync", false, "Flag to enable syncing packages for the repository") //This flag is by default false for now as this feature would go GA in GHES 3.10
-	cmd.Flags().StringVar(&f.GHPatToken, "gh-pat-token", "", "GitHub.com PAT token for packages pull")
+	cmd.Flags().StringVar(&f.SourceToken, "source-token", "", "GitHub.com PAT token for packages pull")
 
 }
 
@@ -27,8 +27,8 @@ func (f *CommonFlags) Validate(reposRequired bool) Validations {
 	if reposRequired && !f.HasAtLeastOneRepoFlag() {
 		validations = append(validations, "one of --repo-name, --repo-name-list, --repo-name-list-file must be set")
 	}
-	if f.PackageSync && f.GHPatToken == "" {
-		validations = append(validations, "gh-pat-token must be set if packages is set to true")
+	if f.PackageSync && f.SourceToken == "" {
+		validations = append(validations, "source-token must be set if packages is set to true")
 	}
 	return validations
 }

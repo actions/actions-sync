@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, destinationToken, destinationRepoName, ghAPIUrl string) error {
+func PushPackagesForRepo(cacheDir, sourceToken, sourceRepoName, destinationURL, destinationToken, destinationRepoName, ghAPIUrl string) error {
 
 	tags, err := ReadValidPackageTagsFromCache(cacheDir, sourceRepoName)
 	if err != nil {
@@ -24,7 +24,7 @@ func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, d
 		go func(i int) {
 			defer wg.Done()
 			tag := tags[i]
-			err = PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tag, ghAPIUrl)
+			err = PushPackageForTag(cacheDir, sourceRepoName, sourceToken, destinationURL, destinationToken, destinationRepoName, tag, ghAPIUrl)
 			if err != nil {
 				fmt.Printf("Error pushing package for tag %s: %s", tag, err)
 			}
@@ -35,10 +35,10 @@ func PushPackagesForRepo(cacheDir, ghPatToken, sourceRepoName, destinationURL, d
 	return nil
 }
 
-func PushPackageForTag(cacheDir, sourceRepoName, ghPatToken, destinationURL, destinationToken, destinationRepoName, tagName, ghAPIUrl string) error {
+func PushPackageForTag(cacheDir, sourceRepoName, sourceToken, destinationURL, destinationToken, destinationRepoName, tagName, ghAPIUrl string) error {
 
 	//Get release for tag from github
-	release, err := GetReleaseForRepoTag(sourceRepoName, tagName, ghPatToken, ghAPIUrl)
+	release, err := GetReleaseForRepoTag(sourceRepoName, tagName, sourceToken, ghAPIUrl)
 	if err != nil {
 		return fmt.Errorf("Error getting release for tag %s: %s", tagName, err)
 	}

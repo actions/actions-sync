@@ -375,7 +375,7 @@ function pull_with_packages(){
     --source-url "git://localhost:$SRC_GIT_DAEMON_PORT" \
     "$1" "$2" \
     --enable-packages-sync  true \
-    --gh-pat-token  "gh_1234567890" \
+    --source-token  "gh_1234567890" \
     --ghcr-url "http://localhost:$GHCR_API_PORT" \
     &> $OUTPUT ||
     fail $3
@@ -398,7 +398,7 @@ function push_with_packages() {
     --destination-token "token" \
     --destination-url "http://localhost:$DEST_API_PORT" \
     --enable-packages-sync  true \
-    --gh-pat-token  "gh_1234567890" \
+    --source-token  "gh_1234567890" \
     --gh-api-url "http://localhost:$GH_API_PORT" \
     --repo-name $2 \
     &> $OUTPUT ||
@@ -448,7 +448,7 @@ function sync_with_packages() {
     "$1" "$2" \
     --destination-url "http://localhost:$DEST_API_PORT" \
     --enable-packages-sync true \
-    --gh-pat-token  "gh_1234567890" \
+    --source-token  "gh_1234567890" \
     --gh-api-url "http://localhost:$GH_API_PORT" \
     --ghcr-url "http://localhost:$GHCR_API_PORT" \
     &> $OUTPUT ||
