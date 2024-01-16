@@ -30,8 +30,7 @@ func Sync(ctx context.Context, flags *SyncFlags) error {
 	if err := Pull(ctx, pullFlags); err != nil {
 		return err
 	}
-	if err := Push(ctx, pushFlags); err != nil {
-		return err
-	}
-	return nil
+
+	err := Push(ctx, pushFlags)
+	return err
 }
