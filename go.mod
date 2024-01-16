@@ -1,6 +1,6 @@
 module github.com/actions/actions-sync
 
-go 1.17
+go 1.21
 
 require (
 	github.com/go-git/go-git/v5 v5.4.2
