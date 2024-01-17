@@ -1,4 +1,4 @@
-name: Licences Check
+name: licenses check
 
 on:
   push:
@@ -16,8 +16,8 @@ permissions:
   contents: write
 
 jobs:
-  licenced:
-    name: Licences Check
+  licensed:
+    name: licensed check
     runs-on: ubuntu-latest
 
     steps:
