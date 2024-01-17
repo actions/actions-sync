@@ -1,9 +1,9 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/protocol/packp/sideband
-version: v5.4.2
+version: v5.11.0
 type: go
 summary: Package sideband implements a sideband mutiplex/demultiplexer
-homepage: https://godoc.org/github.com/go-git/go-git/v5/plumbing/protocol/packp/sideband
+homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/plumbing/protocol/packp/sideband
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE

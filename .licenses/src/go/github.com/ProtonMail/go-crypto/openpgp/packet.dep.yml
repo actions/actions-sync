@@ -1,10 +1,10 @@
 ---
 name: github.com/ProtonMail/go-crypto/openpgp/packet
-version: v0.0.0-20220407094043-a94812496cf5
+version: v0.0.0-20230828082145-3c4c8a2d2371
 type: go
 summary: Package packet implements parsing and serialization of OpenPGP packets, as
   specified in RFC 4880.
-homepage: https://godoc.org/github.com/ProtonMail/go-crypto/openpgp/packet
+homepage: https://pkg.go.dev/github.com/ProtonMail/go-crypto/openpgp/packet
 license: other
 licenses:
 - sources: go-crypto/LICENSE

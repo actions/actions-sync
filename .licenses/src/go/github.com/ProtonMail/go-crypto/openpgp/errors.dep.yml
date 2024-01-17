@@ -1,9 +1,9 @@
 ---
 name: github.com/ProtonMail/go-crypto/openpgp/errors
-version: v0.0.0-20220407094043-a94812496cf5
+version: v0.0.0-20230828082145-3c4c8a2d2371
 type: go
 summary: Package errors contains common error types for the OpenPGP packages.
-homepage: https://godoc.org/github.com/ProtonMail/go-crypto/openpgp/errors
+homepage: https://pkg.go.dev/github.com/ProtonMail/go-crypto/openpgp/errors
 license: other
 licenses:
 - sources: go-crypto/LICENSE

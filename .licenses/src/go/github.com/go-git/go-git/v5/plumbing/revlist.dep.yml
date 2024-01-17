@@ -1,10 +1,10 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/revlist
-version: v5.4.2
+version: v5.11.0
 type: go
 summary: Package revlist provides support to access the ancestors of commits, in a
   similar way as the git-rev-list command.
-homepage: https://godoc.org/github.com/go-git/go-git/v5/plumbing/revlist
+homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/plumbing/revlist
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE

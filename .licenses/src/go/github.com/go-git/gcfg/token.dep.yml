@@ -1,10 +1,10 @@
 ---
 name: github.com/go-git/gcfg/token
-version: v1.5.0
+version: v1.5.1-0.20230307220236-3a3c6141e376
 type: go
 summary: Package token defines constants representing the lexical tokens of the gcfg
   configuration syntax and basic operations on tokens (printing, predicates).
-homepage: https://godoc.org/github.com/go-git/gcfg/token
+homepage: https://pkg.go.dev/github.com/go-git/gcfg/token
 license: other
 licenses:
 - sources: gcfg/LICENSE

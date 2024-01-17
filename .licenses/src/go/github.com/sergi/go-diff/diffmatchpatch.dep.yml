@@ -4,7 +4,7 @@ version: v1.2.0
 type: go
 summary: Package diffmatchpatch offers robust algorithms to perform the operations
   required for synchronizing plain text.
-homepage: https://godoc.org/github.com/sergi/go-diff/diffmatchpatch
+homepage: https://pkg.go.dev/github.com/sergi/go-diff/diffmatchpatch
 license: mit
 licenses:
 - sources: go-diff/LICENSE
@@ -30,3 +30,4 @@ licenses:
     DEALINGS IN THE SOFTWARE.
 
 notices: []
+...

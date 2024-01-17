@@ -3,7 +3,7 @@ name: github.com/kevinburke/ssh_config
 version: v1.2.0
 type: go
 summary: Package ssh_config provides tools for manipulating SSH config files.
-homepage: https://godoc.org/github.com/kevinburke/ssh_config
+homepage: https://pkg.go.dev/github.com/kevinburke/ssh_config
 license: other
 licenses:
 - sources: LICENSE

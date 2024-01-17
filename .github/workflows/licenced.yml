@@ -1,23 +1,50 @@
-name: licenced
+name: Licences Check
+
 on:
   push:
-    paths-ignore:
-      - "docs/**"
     branches:
-      - "**"
+      - main
+  pull_request:
+    branches:
+      - main
+      - enterprise-*.*-release
+  workflow_dispatch:
+
+# github/licensed-ci
+permissions:
+  pull-requests: write
+  contents: write
+
 jobs:
   licenced:
     name: Licences Check
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          go-version: 1.14.1
-      - uses: jonabc/setup-licensed@53335d677bd13ee176a37f1612fbe030c08c1d2b
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v4
         with:
-          version: 2.x
-      - uses: jonabc/licensed-ci@b092bcc641fecee0b731506cf2736d33c9f47831
+          go-version-file: go.mod
+
+      - run: go version
+
+      - run: go mod vendor
+
+      # Ruby is required for licensed
+      - uses: ruby/setup-ruby@bc1dd263b68cb5626dbb55d5c89777d79372c484
+        with:
+          ruby-version: "3.2"
+
+      - uses: github/setup-licensed@v1
+        with:
+          version: 4.x
+
+      - uses: github/licensed-ci@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: branch

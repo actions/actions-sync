@@ -1,9 +1,9 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/format/config
-version: v5.4.2
+version: v5.11.0
 type: go
 summary: Package config implements encoding and decoding of git config files.
-homepage: https://godoc.org/github.com/go-git/go-git/v5/plumbing/format/config
+homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/plumbing/format/config
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE

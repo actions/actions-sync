@@ -1,9 +1,9 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/transport/ssh
-version: v5.4.2
+version: v5.11.0
 type: go
 summary: Package ssh implements the SSH transport protocol.
-homepage: https://godoc.org/github.com/go-git/go-git/v5/plumbing/transport/ssh
+homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/plumbing/transport/ssh
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE

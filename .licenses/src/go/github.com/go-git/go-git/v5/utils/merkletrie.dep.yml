@@ -1,10 +1,10 @@
 ---
 name: github.com/go-git/go-git/v5/utils/merkletrie
-version: v5.4.2
+version: v5.11.0
 type: go
 summary: Package merkletrie provides support for n-ary trees that are at the same
   time Merkle trees and Radix trees (tries).
-homepage: https://godoc.org/github.com/go-git/go-git/v5/utils/merkletrie
+homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/utils/merkletrie
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE
