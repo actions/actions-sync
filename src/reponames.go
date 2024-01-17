@@ -2,7 +2,7 @@ package src
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -35,7 +35,7 @@ func getRepoNamesFromRepoFlags(flags *CommonFlags) ([]string, error) {
 func getRepoNamesFromCacheDir(flags *CommonFlags) ([]string, error) {
 	repoNames := make([]string, 0)
 
-	orgDirs, err := ioutil.ReadDir(flags.CacheDir)
+	orgDirs, err := os.ReadDir(flags.CacheDir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error opening cache directory `%s`", flags.CacheDir)
 	}
@@ -44,7 +44,7 @@ func getRepoNamesFromCacheDir(flags *CommonFlags) ([]string, error) {
 		if !orgDir.IsDir() {
 			return nil, errors.Errorf("unexpected file in root of cache directory `%s`", orgDirPath)
 		}
-		repoDirs, err := ioutil.ReadDir(orgDirPath)
+		repoDirs, err := os.ReadDir(orgDirPath)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error opening repository cache directory `%s`", orgDirPath)
 		}
@@ -70,7 +70,7 @@ func getRepoNamesFromCSVString(csv string) ([]string, error) {
 }
 
 func getRepoNamesFromFile(file string) ([]string, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

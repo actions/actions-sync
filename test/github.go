@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"html"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path"
 	"strings"
@@ -71,7 +71,7 @@ func main() {
 	}).Methods("POST")
 
 	r.HandleFunc("/api/v3/admin/organizations", func(w http.ResponseWriter, r *http.Request) {
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			panic(err)
 		}
@@ -129,7 +129,7 @@ func main() {
 
 	r.HandleFunc("/api/v3/orgs/{org}/repos", func(w http.ResponseWriter, r *http.Request) {
 		orgName := mux.Vars(r)["org"]
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			panic(err)
 		}
@@ -178,7 +178,7 @@ func main() {
 	}).Methods("POST")
 
 	r.HandleFunc("/api/v3/user/repos", func(w http.ResponseWriter, r *http.Request) {
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			panic(err)
 		}
