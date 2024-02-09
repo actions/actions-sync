@@ -1,0 +1,51 @@
+name: licenses check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# github/licensed-ci
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  licensed:
+    name: licensed check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+
+      - run: go version
+
+      - run: go mod vendor
+
+      # Ruby is required for licensed
+      - uses: ruby/setup-ruby@bc1dd263b68cb5626dbb55d5c89777d79372c484
+        with:
+          ruby-version: "3.2"
+
+      - uses: github/setup-licensed@v1
+        with:
+          version: 4.x
+
+      - uses: github/licensed-ci@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: branch
+        env:
+          GOFLAGS: "-mod=vendor"

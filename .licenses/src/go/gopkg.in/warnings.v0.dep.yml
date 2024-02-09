@@ -3,7 +3,7 @@ name: gopkg.in/warnings.v0
 version: v0.1.2
 type: go
 summary: Package warnings implements error handling with non-fatal errors (warnings).
-homepage: https://godoc.org/gopkg.in/warnings.v0
+homepage: https://pkg.go.dev/gopkg.in/warnings.v0
 license: bsd-2-clause
 licenses:
 - sources: LICENSE

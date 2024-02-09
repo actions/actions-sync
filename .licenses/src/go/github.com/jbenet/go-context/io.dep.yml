@@ -3,7 +3,7 @@ name: github.com/jbenet/go-context/io
 version: v0.0.0-20150711004518-d14ea06fba99
 type: go
 summary: Package ctxio provides io.Reader and io.Writer wrappers that respect context.Contexts.
-homepage: https://godoc.org/github.com/jbenet/go-context/io
+homepage: https://pkg.go.dev/github.com/jbenet/go-context/io
 license: mit
 licenses:
 - sources: go-context/LICENSE

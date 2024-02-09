@@ -1,11 +1,11 @@
 ---
 name: github.com/ProtonMail/go-crypto/openpgp/elgamal
-version: v0.0.0-20220407094043-a94812496cf5
+version: v0.0.0-20230828082145-3c4c8a2d2371
 type: go
 summary: Package elgamal implements ElGamal encryption, suitable for OpenPGP, as specified
   in "A Public-Key Cryptosystem and a Signature Scheme Based on Discrete Logarithms,"
   IEEE Transactions on Information Theory, v.
-homepage: https://godoc.org/github.com/ProtonMail/go-crypto/openpgp/elgamal
+homepage: https://pkg.go.dev/github.com/ProtonMail/go-crypto/openpgp/elgamal
 license: other
 licenses:
 - sources: go-crypto/LICENSE

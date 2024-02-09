@@ -1,9 +1,9 @@
 ---
 name: github.com/ProtonMail/go-crypto/openpgp/armor
-version: v0.0.0-20220407094043-a94812496cf5
+version: v0.0.0-20230828082145-3c4c8a2d2371
 type: go
 summary: Package armor implements OpenPGP ASCII Armor, see RFC 4880.
-homepage: https://godoc.org/github.com/ProtonMail/go-crypto/openpgp/armor
+homepage: https://pkg.go.dev/github.com/ProtonMail/go-crypto/openpgp/armor
 license: other
 licenses:
 - sources: go-crypto/LICENSE

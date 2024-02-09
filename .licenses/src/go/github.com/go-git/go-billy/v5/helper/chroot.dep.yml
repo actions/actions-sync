@@ -1,9 +1,9 @@
 ---
 name: github.com/go-git/go-billy/v5/helper/chroot
-version: v5.3.1
+version: v5.5.0
 type: go
-summary: 
-homepage: https://godoc.org/github.com/go-git/go-billy/v5/helper/chroot
+summary:
+homepage: https://pkg.go.dev/github.com/go-git/go-billy/v5/helper/chroot
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE

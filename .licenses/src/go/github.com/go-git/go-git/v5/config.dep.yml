@@ -1,9 +1,9 @@
 ---
 name: github.com/go-git/go-git/v5/config
-version: v5.4.2
+version: v5.11.0
 type: go
 summary: Package config contains the abstraction of multiple config files
-homepage: https://godoc.org/github.com/go-git/go-git/v5/config
+homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/config
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE

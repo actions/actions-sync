@@ -5,7 +5,6 @@ go:
   mod: vendor
 
 apps:
-  - source_path: .
   - source_path: ./src
 
 allowed:
@@ -17,7 +16,3 @@ allowed:
   - cc0-1.0
   - unlicense
   - other
-
-ignored:
-  go:
-    - golang.org/x/**/*

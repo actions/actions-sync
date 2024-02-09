@@ -3,7 +3,7 @@ name: github.com/google/go-github/v43/github
 version: v43.0.0
 type: go
 summary: Package github provides a client for using the GitHub API.
-homepage: https://godoc.org/github.com/google/go-github/v43/github
+homepage: https://pkg.go.dev/github.com/google/go-github/v43/github
 license: bsd-3-clause
 licenses:
 - sources: v43/LICENSE

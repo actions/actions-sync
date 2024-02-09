@@ -1,10 +1,10 @@
 ---
 name: github.com/go-git/go-git/v5/internal/revision
-version: v5.4.2
+version: v5.11.0
 type: go
 summary: 'Package revision extracts git revision from string More information about
   revision : https://www.kernel.org/pub/software/scm/git/docs/gitrevisions.html'
-homepage: https://godoc.org/github.com/go-git/go-git/v5/internal/revision
+homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/internal/revision
 license: apache-2.0
 licenses:
 - sources: v5/LICENSE
