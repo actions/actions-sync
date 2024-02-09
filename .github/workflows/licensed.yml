@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-    tags-ignore: "**"
   pull_request:
     branches:
       - main
@@ -49,6 +48,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: branch
         env:
-          GOPRIVATE: "*github.com/github/*"
-          GOPROXY: "direct"
           GOFLAGS: "-mod=vendor"
