@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/crypto/ssh/knownhosts
-version: v0.17.0
+version: v0.19.0
 type: go
 summary: Package knownhosts implements a parser for the OpenSSH known_hosts host key
   database, and provides utility functions for writing OpenSSH compliant known_hosts

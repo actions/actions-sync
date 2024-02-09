@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/net/internal/socks
-version: v0.19.0
+version: v0.21.0
 type: go
 summary: Package socks provides a SOCKS version 5 client implementation.
 homepage: https://pkg.go.dev/golang.org/x/net/internal/socks
