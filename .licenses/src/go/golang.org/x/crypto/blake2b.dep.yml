@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/crypto/blake2b
-version: v0.17.0
+version: v0.19.0
 type: go
 summary: Package blake2b implements the BLAKE2b hash algorithm defined by RFC 7693
   and the extendable output function (XOF) BLAKE2Xb.
