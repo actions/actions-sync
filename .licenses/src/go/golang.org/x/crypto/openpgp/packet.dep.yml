@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/crypto/openpgp/packet
-version: v0.19.0
+version: v0.21.0
 type: go
 summary: Package packet implements parsing and serialization of OpenPGP packets, as
   specified in RFC 4880.

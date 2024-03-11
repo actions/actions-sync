@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/net/context
-version: v0.21.0
+version: v0.22.0
 type: go
 summary: Package context defines the Context type, which carries deadlines, cancelation
   signals, and other request-scoped values across API boundaries and between processes.

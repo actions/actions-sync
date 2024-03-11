@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/crypto/ssh
-version: v0.19.0
+version: v0.21.0
 type: go
 summary: Package ssh implements an SSH client and server.
 homepage: https://pkg.go.dev/golang.org/x/crypto/ssh

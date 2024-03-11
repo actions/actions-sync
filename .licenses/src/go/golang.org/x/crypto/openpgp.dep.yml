@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/crypto/openpgp
-version: v0.19.0
+version: v0.21.0
 type: go
 summary: Package openpgp implements high level operations on OpenPGP messages.
 homepage: https://pkg.go.dev/golang.org/x/crypto/openpgp
