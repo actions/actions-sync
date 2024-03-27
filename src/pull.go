@@ -9,11 +9,12 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/cobra"
 )
 
 type PullOnlyFlags struct {
-	SourceURL string
+	Username, Token, SourceURL string
 }
 
 type PullFlags struct {
@@ -28,6 +29,8 @@ func (f *PullFlags) Init(cmd *cobra.Command) {
 
 func (f *PullOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.SourceURL, "source-url", "https://github.com", "The domain to pull from")
+	cmd.Flags().StringVar(&f.Token, "source-token", "", "The optional token to use to pull the repository")
+	cmd.Flags().StringVar(&f.Username, "source-user", "", "The optional username to use to pull the repository")
 }
 
 func (f *PullFlags) Validate() Validations {
@@ -45,19 +48,19 @@ func Pull(ctx context.Context, flags *PullFlags) error {
 		return err
 	}
 
-	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, repoNames, gitImplementation{})
+	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.Username, flags.Token, flags.CacheDir, repoNames, gitImplementation{})
 }
 
-func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
+func PullManyWithGitImpl(ctx context.Context, sourceURL, sourceUsername, sourceToken, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
 	for _, repoName := range repoNames {
-		if err := PullWithGitImpl(ctx, sourceURL, cacheDir, repoName, gitimpl); err != nil {
+		if err := PullWithGitImpl(ctx, sourceURL, sourceUsername, sourceToken, cacheDir, repoName, gitimpl); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName string, gitimpl GitImplementation) error {
+func PullWithGitImpl(ctx context.Context, sourceURL, sourceUsername, sourceToken, cacheDir string, repoName string, gitimpl GitImplementation) error {
 	originRepoName, destRepoName, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
@@ -73,6 +76,10 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName s
 	if !gitimpl.RepositoryExists(dst) {
 		fmt.Fprintf(os.Stdout, "pulling %s to %s ...\n", originRepoName, dst)
 		_, err := gitimpl.CloneRepository(dst, &git.CloneOptions{
+			Auth: &http.BasicAuth{
+				Username: sourceUsername,
+				Password: sourceToken,
+			},
 			SingleBranch: false,
 			URL:          fmt.Sprintf("%s/%s", sourceURL, originRepoName),
 		})
@@ -91,6 +98,10 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName s
 
 	fmt.Fprintf(os.Stdout, "fetching * refs for %s ...\n", originRepoName)
 	err = repo.FetchContext(ctx, &git.FetchOptions{
+		Auth: &http.BasicAuth{
+			Username: sourceUsername,
+			Password: sourceToken,
+		},
 		RefSpecs: []config.RefSpec{
 			config.RefSpec("+refs/heads/*:refs/heads/*"),
 		},
