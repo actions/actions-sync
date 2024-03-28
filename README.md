@@ -30,6 +30,10 @@ When there are machines which have access to both the public internet and the GH
    The URL of the GHES instance to sync repositories onto.
 - `destination-token` _(required)_
    A personal access token to authenticate against the GHES instance when uploading repositories. See [Destination token scopes](#destination-token-scopes) below.
+- `source-token` _(optional)_
+   A personal access token to authenticate against `github.com` when cloning private repositories. See [Source token scopes](#source-token-scopes) below.
+- `source-user` _(optional)_
+   Username to authenticate with against `github.com` when cloning private repositories. This user needs access to the organizations and repos that you want to sync.
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
@@ -65,6 +69,10 @@ When no machine has access to both the public internet and the GHES instance:
 
 - `cache-dir` _(required)_
    The directory to cache the pulled repositories into.
+- `source-token` _(optional)_
+   A personal access token to authenticate against `github.com` when cloning private repositories. See [Source token scopes](#source-token-scopes) below.
+- `source-user` _(optional)_
+   Username to authenticate with against `github.com` when cloning private repositories. This user needs access to the organizations and repos that you want to pull.
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
@@ -105,6 +113,10 @@ When no machine has access to both the public internet and the GHES instance:
     --destination-token "token" \
     --destination-url "https://www.example.com"
 ```
+
+## Source token scopes
+
+When creating a personal access token to sync private repositories include the `repo` scope. Note that the user needs access to the `repository` that you want to sync.
 
 ## Destination token scopes
 
