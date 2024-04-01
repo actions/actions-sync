@@ -1,8 +1,8 @@
 ---
 name: github.com/ProtonMail/go-crypto/internal/byteutil
-version: v0.0.0-20230828082145-3c4c8a2d2371
+version: v1.0.0
 type: go
-summary:
+summary: 
 homepage: https://pkg.go.dev/github.com/ProtonMail/go-crypto/internal/byteutil
 license: other
 licenses:

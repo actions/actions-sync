@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/crypto/openpgp/elgamal
-version: v0.19.0
+version: v0.21.0
 type: go
 summary: Package elgamal implements ElGamal encryption, suitable for OpenPGP, as specified
   in "A Public-Key Cryptosystem and a Signature Scheme Based on Discrete Logarithms,"

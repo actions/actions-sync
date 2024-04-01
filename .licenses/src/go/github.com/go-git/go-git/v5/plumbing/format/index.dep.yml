@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/format/index
-version: v5.11.0
+version: v5.12.0
 type: go
 summary: Package index implements encoding and decoding of index format files.
 homepage: https://pkg.go.dev/github.com/go-git/go-git/v5/plumbing/format/index

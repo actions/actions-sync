@@ -1,6 +1,6 @@
 ---
 name: github.com/ProtonMail/go-crypto/openpgp/eddsa
-version: v0.0.0-20230828082145-3c4c8a2d2371
+version: v1.0.0
 type: go
 summary: Package eddsa implements EdDSA signature, suitable for OpenPGP, as specified
   in https://datatracker.ietf.org/doc/html/draft-ietf-openpgp-crypto-refresh-06#section-13.7
