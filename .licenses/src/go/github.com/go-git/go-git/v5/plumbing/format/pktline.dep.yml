@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/format/pktline
-version: v5.11.0
+version: v5.12.0
 type: go
 summary: Package pktline implements reading payloads form pkt-lines and encoding pkt-lines
   from payloads.

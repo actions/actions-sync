@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/utils/binary
-version: v5.11.0
+version: v5.12.0
 type: go
 summary: Package binary implements syntax-sugar functions on top of the standard library
   binary package

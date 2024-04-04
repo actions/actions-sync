@@ -1,6 +1,6 @@
 ---
 name: github.com/ProtonMail/go-crypto/openpgp/internal/algorithm
-version: v0.0.0-20230828082145-3c4c8a2d2371
+version: v1.0.0
 type: go
 summary:
 homepage: https://pkg.go.dev/github.com/ProtonMail/go-crypto/openpgp/internal/algorithm

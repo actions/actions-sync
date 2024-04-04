@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/transport/client
-version: v5.11.0
+version: v5.12.0
 type: go
 summary: Package client contains helper function to deal with the different client
   protocols.
