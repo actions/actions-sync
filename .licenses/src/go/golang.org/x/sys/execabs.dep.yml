@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/sys/execabs
-version: v0.17.0
+version: v0.18.0
 type: go
 summary: Package execabs is a drop-in replacement for os/exec that requires PATH lookups
   to find absolute paths.
