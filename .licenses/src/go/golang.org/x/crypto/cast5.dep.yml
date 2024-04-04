@@ -1,6 +1,6 @@
 ---
 name: golang.org/x/crypto/cast5
-version: v0.19.0
+version: v0.21.0
 type: go
 summary: Package cast5 implements CAST5, as defined in RFC 2144.
 homepage: https://pkg.go.dev/golang.org/x/crypto/cast5
