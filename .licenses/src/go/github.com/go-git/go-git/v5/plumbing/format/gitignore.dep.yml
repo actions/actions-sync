@@ -1,6 +1,6 @@
 ---
 name: github.com/go-git/go-git/v5/plumbing/format/gitignore
-version: v5.11.0
+version: v5.12.0
 type: go
 summary: Package gitignore implements matching file system paths to gitignore patterns
   that can be automatically read from a git repository tree in the order of definition

@@ -1,6 +1,6 @@
 ---
 name: github.com/ProtonMail/go-crypto/ocb
-version: v0.0.0-20230828082145-3c4c8a2d2371
+version: v1.0.0
 type: go
 summary: 'Package ocb provides an implementation of the OCB (offset codebook) mode
   of operation, as described in RFC-7253 of the IRTF and in Rogaway, Bellare, Black
