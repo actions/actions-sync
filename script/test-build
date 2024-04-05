@@ -58,9 +58,9 @@ function test_push() {
 
   # Push multiple branches
   setup_cache "org/repo:heads/change:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org/repo:heads/nochange:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+    "org/repo:heads/nochange:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   setup_dest "org/repo:heads/change:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org/repo:heads/nochange:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+    "org/repo:heads/nochange:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   push "pushing multiple branches"
   assert_dest_sha "org/repo" "heads/change" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/change to new commit"
@@ -68,9 +68,9 @@ function test_push() {
 
   # Pushing multiple branches and tags
   setup_cache "org/repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org/repo:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+    "org/repo:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
   setup_dest "org/repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org/repo:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+    "org/repo:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   push "pushing multiple branches and tags"
   assert_dest_sha "org/repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo:heads/main to new commit"
@@ -78,13 +78,13 @@ function test_push() {
 
   # Pushing multiple repositories
   setup_cache "org1/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org1/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org1/repo2:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org2/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+    "org1/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+    "org1/repo2:tags/v1:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
+    "org2/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
   setup_dest "org1/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org1/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org1/repo2:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org2/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+    "org1/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+    "org1/repo2:tags/v1:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
+    "org2/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   push "pushing multiple repositories"
   assert_dest_sha "org1/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org1/repo1:heads/main to new commit"
@@ -94,9 +94,9 @@ function test_push() {
 
   # Honor --repo-name flag, ignore other cache entries
   setup_cache "org/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+    "org/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
   setup_dest "org/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+    "org/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   push2args --repo-name "org/repo1" "pushing only one of the repos in the cache"
   assert_dest_sha "org/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo1 passed in repo flag"
@@ -191,9 +191,9 @@ function test_sync() {
 
   # Honor --repo-name flag, ignore other cache entries
   setup_cache "org/repo1:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52" \
-              "org/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+    "org/repo2:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
   setup_dest "org/repo1:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142" \
-               "org/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+    "org/repo2:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
 
   sync --repo-name "org/repo1" "syncing only one of the repos in the cache"
   assert_dest_sha "org/repo1" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org/repo1 passed in repo flag"
@@ -208,7 +208,7 @@ function before_suite() {
     rm -rf test/tmp
     mkdir -p test/tmp/dest
     mkdir -p test/tmp/src
-  ) > /dev/null
+  ) >/dev/null
 
   git daemon \
     --reuseaddr \
@@ -216,7 +216,7 @@ function before_suite() {
     --export-all \
     --enable=receive-pack \
     --port="$SRC_GIT_DAEMON_PORT" \
-    --base-path=test/tmp/src &> $SRC_GIT_DAEMON_OUTPUT &
+    --base-path=test/tmp/src &>$SRC_GIT_DAEMON_OUTPUT &
   SRC_GIT_DAEMON_PID=$!
 
   git daemon \
@@ -225,12 +225,12 @@ function before_suite() {
     --export-all \
     --enable=receive-pack \
     --port="$DEST_GIT_DAEMON_PORT" \
-    --base-path=test/tmp/dest &> $DEST_GIT_DAEMON_OUTPUT &
+    --base-path=test/tmp/dest &>$DEST_GIT_DAEMON_OUTPUT &
   DEST_GIT_DAEMON_PID=$!
 
   go run test/github.go \
     -p "$DEST_API_PORT" \
-    -git-daemon-url "git://localhost:$DEST_GIT_DAEMON_PORT/" &> $DEST_API_OUTPUT  &
+    -git-daemon-url "git://localhost:$DEST_GIT_DAEMON_PORT/" &>$DEST_API_OUTPUT &
   DEST_API_PID=$!
 
   script/build
@@ -257,7 +257,7 @@ function setup_src() {
 
     local org=$(echo $nwo | cut -d'/' -f1)
     mkdir -p test/tmp/src/$org && cp -R test/fixtures/repo.git test/tmp/src/$nwo
-    echo "$sha" > "test/tmp/src/$nwo/refs/$refname"
+    echo "$sha" >"test/tmp/src/$nwo/refs/$refname"
   done
 }
 
@@ -270,7 +270,7 @@ function setup_cache() {
     local refname=$(echo $r | cut -d':' -f2)
     local sha=$(echo $r | cut -d':' -f3)
     mkdir -p test/tmp/cache/$nwo && cp -R test/fixtures/repo.git test/tmp/cache/$nwo/.git
-    echo "$sha" > "test/tmp/cache/$nwo/.git/refs/$refname"
+    echo "$sha" >"test/tmp/cache/$nwo/.git/refs/$refname"
   done
 }
 
@@ -283,13 +283,13 @@ function setup_dest() {
     local refname=$(echo $r | cut -d':' -f2)
     local sha=$(echo $r | cut -d':' -f3)
     mkdir -p test/tmp/dest/$nwo && cp -R test/fixtures/repo.git test/tmp/dest/$nwo/.git
-    echo "$sha" > "test/tmp/dest/$nwo/.git/refs/$refname"
+    echo "$sha" >"test/tmp/dest/$nwo/.git/refs/$refname"
   done
 }
 
 function version() {
   bin/actions-sync version \
-    &> $OUTPUT ||
+    &>$OUTPUT ||
     fail $1
 }
 
@@ -298,7 +298,7 @@ function pull() {
     --cache-dir "test/tmp/cache" \
     --source-url "git://localhost:$SRC_GIT_DAEMON_PORT" \
     "$1" "$2" \
-    &> $OUTPUT ||
+    &>$OUTPUT ||
     fail $3
 }
 
@@ -308,7 +308,7 @@ function push() {
     --disable-push-git-auth \
     --destination-token "token" \
     --destination-url "http://localhost:$DEST_API_PORT" \
-    &> $OUTPUT ||
+    &>$OUTPUT ||
     fail "$1"
 }
 
@@ -319,7 +319,7 @@ function push2args() {
     --destination-token "token" \
     --destination-url "http://localhost:$DEST_API_PORT" \
     "$1" "$2" \
-    &> $OUTPUT ||
+    &>$OUTPUT ||
     fail $3
 }
 
@@ -330,7 +330,7 @@ function push_impersonation() {
     --destination-token "token" \
     --destination-url "http://localhost:$DEST_API_PORT" \
     --actions-admin-user $1 \
-    &> $OUTPUT ||
+    &>$OUTPUT ||
     fail "$2"
 }
 
@@ -342,7 +342,7 @@ function sync() {
     --destination-token "token" \
     --destination-url "http://localhost:$DEST_API_PORT" \
     "$1" "$2" \
-    &> $OUTPUT ||
+    &>$OUTPUT ||
     fail $3
 }
 
