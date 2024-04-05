@@ -228,6 +228,18 @@ function before_suite() {
     --base-path=test/tmp/dest &>$DEST_GIT_DAEMON_OUTPUT &
   DEST_GIT_DAEMON_PID=$!
 
+  # wait for the git daemons to start before continuing
+
+  if ! check_git_daemon $SRC_GIT_DAEMON_PORT; then
+    echo "timeout waiting for src git daemon to start"
+    exit 1
+  fi
+
+  if ! check_git_daemon $DEST_GIT_DAEMON_PORT; then
+    echo "timeout waiting for dest git daemon to start"
+    exit 1
+  fi
+
   go run test/github.go \
     -p "$DEST_API_PORT" \
     -git-daemon-url "git://localhost:$DEST_GIT_DAEMON_PORT/" &>$DEST_API_OUTPUT &
@@ -381,6 +393,23 @@ function fail() {
   cat $DEST_API_OUTPUT
   echo -----/ghes api output-----
   exit 1
+}
+
+function check_git_daemon {
+  port=$1
+
+  for _ in {1..10}; do
+    process=$(lsof -i ":$port" | grep 'git-daemon')
+    if [ -z "$process" ]; then
+      echo "Waiting for git daemon to start on port $port..."
+      sleep 1
+    else
+      echo "Git daemon is running on port $port"
+      return 0
+    fi
+  done
+  echo "Git daemon did not start within the expected time."
+  return 1
 }
 
 test_version
