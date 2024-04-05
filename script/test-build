@@ -397,9 +397,8 @@ function fail() {
 
 function check_git_daemon {
   port=$1
-
-  for _ in {1..10}; do
-    process=$(lsof -i ":$port" | grep 'git-daemon')
+  for i in {1..10}; do
+    process=$(ps aux | grep "git daemon" | grep $port)
     if [ -z "$process" ]; then
       echo "Waiting for git daemon to start on port $port..."
       sleep 1
