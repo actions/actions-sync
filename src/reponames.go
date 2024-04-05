@@ -62,7 +62,7 @@ func getRepoNamesFromCacheDir(flags *CommonFlags) ([]string, error) {
 }
 
 func getRepoNamesFromCSVString(csv string) ([]string, error) {
-	repos := filterEmptyEntries(strings.Split(csv, ","))
+	repos := filterEntries(strings.Split(csv, ","))
 	if len(repos) == 0 {
 		return nil, ErrEmptyRepoList
 	}
@@ -74,17 +74,17 @@ func getRepoNamesFromFile(file string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	repos := filterEmptyEntries(strings.Split(string(data), "\n"))
+	repos := filterEntries(strings.Split(string(data), "\n"))
 	if len(repos) == 0 {
 		return nil, ErrEmptyRepoList
 	}
 	return repos, nil
 }
 
-func filterEmptyEntries(names []string) []string {
+func filterEntries(names []string) []string {
 	filtered := []string{}
 	for _, name := range names {
-		if name != "" {
+		if !strings.HasPrefix(name, "#") && len(name) > 0 {
 			filtered = append(filtered, name)
 		}
 	}
