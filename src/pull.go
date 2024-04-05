@@ -2,6 +2,7 @@ package src
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -12,6 +13,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/cobra"
 )
+
+var ErrNoAuth = fmt.Errorf("no authentication configured")
+var ErrPartialAuth = fmt.Errorf("both Username and Token must be set")
 
 type PullOnlyFlags struct {
 	Username, Token, SourceURL string
@@ -39,7 +43,33 @@ func (f *PullFlags) Validate() Validations {
 
 func (f *PullOnlyFlags) Validate() Validations {
 	var validations Validations
+	if !f.hasUserAuth() && !f.hasNoUserAuth() {
+		validations = append(validations, "to authenticate, both --source-token and --source-user must be set")
+	}
 	return validations
+}
+
+func (f *PullOnlyFlags) hasUserAuth() bool {
+	return f.Username != "" && f.Token != ""
+}
+
+func (f *PullOnlyFlags) hasNoUserAuth() bool {
+	return f.Username == "" && f.Token == ""
+}
+
+func (f *PullOnlyFlags) UserAuth() (http.AuthMethod, error) {
+	if f.hasUserAuth() {
+		return &http.BasicAuth{
+			Username: f.Username,
+			Password: f.Token,
+		}, nil
+	}
+
+	if f.hasNoUserAuth() {
+		return nil, ErrNoAuth
+	}
+
+	return nil, ErrPartialAuth
 }
 
 func Pull(ctx context.Context, flags *PullFlags) error {
@@ -48,19 +78,24 @@ func Pull(ctx context.Context, flags *PullFlags) error {
 		return err
 	}
 
-	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.Username, flags.Token, flags.CacheDir, repoNames, gitImplementation{})
+	userAuth, err := flags.UserAuth()
+	if errors.Is(err, ErrPartialAuth) {
+		return err
+	}
+
+	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, userAuth, repoNames, gitImplementation{})
 }
 
-func PullManyWithGitImpl(ctx context.Context, sourceURL, sourceUsername, sourceToken, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
+func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir string, userAuth http.AuthMethod, repoNames []string, gitimpl GitImplementation) error {
 	for _, repoName := range repoNames {
-		if err := PullWithGitImpl(ctx, sourceURL, sourceUsername, sourceToken, cacheDir, repoName, gitimpl); err != nil {
+		if err := PullWithGitImpl(ctx, sourceURL, cacheDir, repoName, userAuth, gitimpl); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func PullWithGitImpl(ctx context.Context, sourceURL, sourceUsername, sourceToken, cacheDir string, repoName string, gitimpl GitImplementation) error {
+func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir, repoName string, userAuth http.AuthMethod, gitimpl GitImplementation) error {
 	originRepoName, destRepoName, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
@@ -76,10 +111,7 @@ func PullWithGitImpl(ctx context.Context, sourceURL, sourceUsername, sourceToken
 	if !gitimpl.RepositoryExists(dst) {
 		fmt.Fprintf(os.Stdout, "pulling %s to %s ...\n", originRepoName, dst)
 		_, err := gitimpl.CloneRepository(dst, &git.CloneOptions{
-			Auth: &http.BasicAuth{
-				Username: sourceUsername,
-				Password: sourceToken,
-			},
+			Auth:         userAuth,
 			SingleBranch: false,
 			URL:          fmt.Sprintf("%s/%s", sourceURL, originRepoName),
 		})
@@ -98,10 +130,7 @@ func PullWithGitImpl(ctx context.Context, sourceURL, sourceUsername, sourceToken
 
 	fmt.Fprintf(os.Stdout, "fetching * refs for %s ...\n", originRepoName)
 	err = repo.FetchContext(ctx, &git.FetchOptions{
-		Auth: &http.BasicAuth{
-			Username: sourceUsername,
-			Password: sourceToken,
-		},
+		Auth: userAuth,
 		RefSpecs: []config.RefSpec{
 			config.RefSpec("+refs/heads/*:refs/heads/*"),
 		},
