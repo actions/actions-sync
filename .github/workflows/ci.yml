@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         platform: [linux, windows]
-        arch: [arm, arm64]
+        arch: [amd64, arm64]
 
     steps:
       - name: Setup QEMU
