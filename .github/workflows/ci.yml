@@ -20,6 +20,6 @@ jobs:
         with:
           version: v1.54.2
       - name: Unit Tests
-        run: .script/test
+        run: ./script/test
       - name: Build and Test
         run: ./script/test-build
