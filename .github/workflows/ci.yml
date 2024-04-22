@@ -59,4 +59,4 @@ jobs:
           GOOS=${{ matrix.platform }} GOARCH=${{ matrix.arch }} go build -o bin/actions-sync-${{ matrix.platform }}-${{ matrix.arch }} main.go
 
       - name: Run End-to-End Tests for ${{ matrix.platform }}-${{ matrix.arch }}
-        run: ./script/test-build-ci bin/actions-sync-${{ matrix.platform }}-${{ matrix.arch }}
+        run: ./script/test-ci bin/actions-sync-${{ matrix.platform }}-${{ matrix.arch }}
