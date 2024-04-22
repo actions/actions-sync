@@ -8,7 +8,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runson: [ubuntu-latest, macos-latest, windows-latest]
+        runson: [
+          ubuntu-latest, 
+          ubuntu-20.04, 
+          macos-latest, 
+          windows-latest, 
+          windows-2019
+        ]
     uses: ./.github/workflows/actions-sync-e2e-test-called.yml
     with:
       runson: ${{ matrix.runson }}

@@ -4,7 +4,7 @@ if($IsLinux) {
 } elseif ($IsWindows) {
    $file_postfix = "windows_amd64"
 } elseif ($IsMacOS) {
-    $file_postfix = "darwin_amd64"
+    $file_postfix = "darwin_arm64"
 }
 
 # Download release to test

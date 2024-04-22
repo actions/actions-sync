@@ -4,13 +4,23 @@ on:
   workflow_dispatch:
 jobs:
   CI:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Lint
-      run: docker-compose run --rm lint
-    - name: Test
-      run: docker-compose run --rm test
-    - name: E2E
-      run: docker-compose run --rm test-build
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+      - name: Lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: v1.57.2
+          args: run
+      - name: Unit Tests
+        run: .script/test
+      - name: Build and Test
+        run: ./script/test-build
