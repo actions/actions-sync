@@ -71,11 +71,11 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 
 	rootRequest, err := ghClient.NewRequest("GET", enterpriseAPIPath, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "error constructing request for GitHub Enterprise client.")
+		return "", errors.Wrap(err, "error constructing request for GitHub Enterprise client")
 	}
 	rootResponse, err := ghClient.Do(ctx, rootRequest, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "error checking connectivity for GitHub Enterprise client.")
+		return "", errors.Wrap(err, "error checking connectivity for GitHub Enterprise client")
 	}
 
 	scopesHeader := rootResponse.Header.Get(xOAuthScopesHeader)
@@ -96,7 +96,7 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 
 	impersonationToken, _, err := ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to impersonate Actions admin user.")
+		return "", errors.Wrap(err, "failed to impersonate Actions admin user")
 	}
 
 	fmt.Printf("got the impersonation token for `%s` ...\n", flags.ActionsAdminUser)
@@ -206,10 +206,13 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 
 	// check if repository already exists
 	ghRepo, resp, err := client.Repositories.Get(ctx, ownerName, repoName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
+	}
 
-	if err == nil {
-		fmt.Printf("Existing repo `%s/%s`\n", ownerName, repoName)
-	} else if resp != nil && resp.StatusCode == 404 {
+	fmt.Printf("Existing repo `%s/%s`\n", ownerName, repoName)
+
+	if resp != nil && resp.StatusCode == 404 {
 		// repo not existing yet - try to create
 		visibility := github.String("public")
 		if isAE {
@@ -230,13 +233,12 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		} else {
 			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 		}
-	} else if err != nil {
-		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 	}
 
 	if ghRepo == nil {
 		return nil, errors.New("error repository is nil")
 	}
+
 	return ghRepo, nil
 }
 

@@ -13,12 +13,12 @@ func Test_extractSourceDest(t *testing.T) {
 	assert.Equal(t, "owner/repo", src)
 	assert.Equal(t, "owner/repo", dst)
 
-	src, dst, err = extractSourceDest("src_owner/src_repo:dst_owner/dst_repo")
+	_, dst, err = extractSourceDest("src_owner/src_repo:dst_owner/dst_repo")
 	require.NoError(t, err)
 	assert.Equal(t, "src_owner/src_repo", src)
 	assert.Equal(t, "dst_owner/dst_repo", dst)
 
-	src, dst, err = extractSourceDest("src_owner/src_repo:dst_owner/dst_repo:bogus/bogus")
+	_, _, err = extractSourceDest("src_owner/src_repo:dst_owner/dst_repo:bogus/bogus")
 	require.Error(t, err)
 }
 
@@ -37,24 +37,24 @@ func Test_validateNwo(t *testing.T) {
 	assert.Equal(t, "a/b", nwo)
 
 	// no slash separator
-	nwo, err = validateNwo("bogus")
+	_, err = validateNwo("bogus")
 	require.Error(t, err)
 
 	// no owner
-	nwo, err = validateNwo("/bogus")
+	_, err = validateNwo("/bogus")
 	require.Error(t, err)
 
 	// no repo name
-	nwo, err = validateNwo("bogus/")
+	_, err = validateNwo("bogus/")
 	require.Error(t, err)
 
-	nwo, err = validateNwo("bogus whitespace/bogus")
+	_, err = validateNwo("bogus whitespace/bogus")
 	require.Error(t, err)
 
-	nwo, err = validateNwo("bogus/bogus/bogus")
+	_, err = validateNwo("bogus/bogus/bogus")
 	require.Error(t, err)
 
 	// A separate destination is only permitted for "repo names", not NWOs.
-	nwo, err = validateNwo("owner/repo:bogus/bogus")
+	_, err = validateNwo("owner/repo:bogus/bogus")
 	require.Error(t, err)
 }
