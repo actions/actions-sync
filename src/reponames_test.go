@@ -13,7 +13,7 @@ func Test_extractSourceDest(t *testing.T) {
 	assert.Equal(t, "owner/repo", src)
 	assert.Equal(t, "owner/repo", dst)
 
-	_, dst, err = extractSourceDest("src_owner/src_repo:dst_owner/dst_repo")
+	src, dst, err = extractSourceDest("src_owner/src_repo:dst_owner/dst_repo")
 	require.NoError(t, err)
 	assert.Equal(t, "src_owner/src_repo", src)
 	assert.Equal(t, "dst_owner/dst_repo", dst)
