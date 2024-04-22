@@ -6,8 +6,9 @@ jobs:
   CI:
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,5 +22,7 @@ jobs:
           version: v1.54.2
       - name: Unit Tests
         run: ./script/test
+      - name: Build
+        run: GOOS=${{matrix.goos}} GOARCH=${{matrix.goarch}} go build -o bin/actions-sync main.go
       - name: Build and Test
         run: ./script/test-build
