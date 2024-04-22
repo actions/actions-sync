@@ -19,7 +19,6 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: v1.54.2
-          args: run
       - name: Unit Tests
         run: .script/test
       - name: Build and Test

@@ -15,8 +15,8 @@ linters:
     - govet
     - unparam
 run:
-    tests: true
-    modules-download-mode: vendor
+  tests: true
+  modules-download-mode: vendor
 issues:
   exclude-rules:
     - path: test/github.go
