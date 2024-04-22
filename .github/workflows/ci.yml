@@ -6,9 +6,10 @@ jobs:
   CI:
     strategy:
       matrix:
+        runs-on: [ubuntu-latest, windows-latest, macos-latest]
         goos: [linux, windows, darwin]
         goarch: [amd64, arm64]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,7 +23,6 @@ jobs:
           version: v1.54.2
       - name: Unit Tests
         run: ./script/test
-      - name: Build
-        run: GOOS=${{matrix.goos}} GOARCH=${{matrix.goarch}} go build -o bin/actions-sync main.go
-      - name: Build and Test
-        run: ./script/test-build
+
+      - name: Run End-to-End Tests for ${{matrix.goos}}/${{matrix.goarch}}
+        run: ./script/test-build-ci ${{matrix.goos}} ${{matrix.goarch}}
