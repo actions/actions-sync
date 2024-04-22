@@ -205,40 +205,41 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 	}
 
 	// check if repository already exists
-	ghRepo, resp, err := client.Repositories.Get(ctx, ownerName, repoName)
+	var ghRepo *github.Repository
+	var resp *github.Response
+	ghRepo, resp, err = client.Repositories.Get(ctx, ownerName, repoName)
 	if err != nil {
+		// repo not existing yet - try to create
+		if resp != nil && resp.StatusCode == 404 {
+			fmt.Printf("repo `%s/%s` doesn't exist, attempting to create\n", ownerName, repoName)
+
+			visibility := github.String("public")
+			if isAE {
+				visibility = github.String("internal")
+			}
+
+			repo := &github.Repository{
+				Name:        github.String(repoName),
+				HasIssues:   github.Bool(false),
+				HasWiki:     github.Bool(false),
+				HasPages:    github.Bool(false),
+				HasProjects: github.Bool(false),
+				Visibility:  visibility,
+			}
+
+			ghRepo, _, err = client.Repositories.Create(ctx, createRepoOrgName, repo)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
+			}
+
+			fmt.Printf("created repo `%s/%s`\n", ownerName, repoName)
+			return ghRepo, nil
+		}
+
 		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 	}
 
-	fmt.Printf("Existing repo `%s/%s`\n", ownerName, repoName)
-
-	if resp != nil && resp.StatusCode == 404 {
-		// repo not existing yet - try to create
-		visibility := github.String("public")
-		if isAE {
-			visibility = github.String("internal")
-		}
-		repo := &github.Repository{
-			Name:        github.String(repoName),
-			HasIssues:   github.Bool(false),
-			HasWiki:     github.Bool(false),
-			HasPages:    github.Bool(false),
-			HasProjects: github.Bool(false),
-			Visibility:  visibility,
-		}
-
-		ghRepo, _, err = client.Repositories.Create(ctx, createRepoOrgName, repo)
-		if err == nil {
-			fmt.Printf("Created repo `%s/%s`\n", ownerName, repoName)
-		} else {
-			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
-		}
-	}
-
-	if ghRepo == nil {
-		return nil, errors.New("error repository is nil")
-	}
-
+	fmt.Printf("found existing repo `%s/%s`\n", ownerName, repoName)
 	return ghRepo, nil
 }
 
