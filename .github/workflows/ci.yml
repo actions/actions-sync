@@ -3,13 +3,8 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
-  CI:
-    strategy:
-      matrix:
-        runs-on: [ubuntu-latest, windows-latest, macos-latest]
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
-    runs-on: ${{ matrix.runs-on }}
+  lint:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,8 +16,47 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: v1.54.2
+  unit-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
       - name: Unit Tests
         run: ./script/test
+  e2e-test:
+    needs: unit-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [linux, windows]
+        arch: [arm, arm64]
 
-      - name: Run End-to-End Tests for ${{matrix.goos}}/${{matrix.goarch}}
-        run: ./script/test-build-ci ${{matrix.goos}} ${{matrix.goarch}}
+    steps:
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Binary for ${{ matrix.platform }}-${{ matrix.arch }}
+        run: |
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+          fi
+
+          GOOS=${{ matrix.platform }} GOARCH=${{ matrix.arch }} go build -o bin/actions-sync-${{ matrix.platform }}-${{ matrix.arch }} main.go
+
+      - name: Run End-to-End Tests for ${{ matrix.platform }}-${{ matrix.arch }}
+        run: ./script/test-build-ci bin/actions-sync-${{ runner.platform }}-${{ runner.arch }}
