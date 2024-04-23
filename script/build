@@ -7,4 +7,4 @@ test -z "${DEBUG:-}" || {
     set -x
 }
 
-CG0_ENABLED=0 go build -o bin/actions-sync main.go
+CGO_ENABLED=0 go build -o bin/actions-sync main.go
