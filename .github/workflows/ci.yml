@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [linux, windows]
+        platform: [linux]
         arch: [amd64, arm64]
         exclude:
           # Exclude Windows AMD64 because it's not supported
