@@ -32,7 +32,7 @@ jobs:
         run: ./script/test
   e2e-test:
     needs: unit-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         platform: [linux]
