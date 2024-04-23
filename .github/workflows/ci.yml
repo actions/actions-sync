@@ -40,7 +40,7 @@ jobs:
         exclude:
           # Exclude Windows AMD64 because it's not supported
           - platform: windows
-            node: amd64
+            arch: amd64
 
     steps:
       - name: Setup QEMU
