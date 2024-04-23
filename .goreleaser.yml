@@ -1,16 +1,26 @@
-project_name: gh
+project_name: actions/actions-sync
 
 builds:
-  - <<: &build_defaults
-      binary: bin/actions-sync
-    id: macos
-    goos: [darwin]
-    goarch: [amd64, arm64]
-  - <<: *build_defaults
-    id: linux
-    goos: [linux]
-    goarch: [amd64, arm64]
-  - <<: *build_defaults
-    id: windows
-    goos: [windows]
-    goarch: [amd64]
+  - id: build
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    binary: bin/actions-sync
+    ignore:
+      - goos: windows
+        goarch: arm64
+    env:
+      - CGO_ENABLED=0
+release:
+  github:
+    owner: actions
+    name: actions-sync
+  # Create the release as a draft so it can be tested before being published
+  # To test, go to the Actions tab and run the "Actions Sync E2E Sanity Test" workflow
+  draft: true
+
+
