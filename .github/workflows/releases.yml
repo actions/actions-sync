@@ -18,7 +18,7 @@ jobs:
       - name: Set CURRENT_TAG
         run: echo "GORELEASER_CURRENT_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@f09f1a7bee7ae6b5153daf4e8c63cc8ce8c7e7d5
+        uses: goreleaser/goreleaser-action@d33b6f6aeabd7fed8bb3fbf32c4d890d29f48545
         with:
           version: latest
           args: release --clean
