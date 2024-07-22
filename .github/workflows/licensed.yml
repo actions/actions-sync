@@ -35,7 +35,7 @@ jobs:
       - run: go mod vendor
 
       # Ruby is required for licensed
-      - uses: ruby/setup-ruby@6bd3d993c602f6b675728ebaecb2b569ff86e99b
+      - uses: ruby/setup-ruby@50ba3386b050ad5b97a41fcb81240cbee1d1821f
         with:
           ruby-version: "3.2"
 
