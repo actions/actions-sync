@@ -228,7 +228,7 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 
 	// check if repository already exists
 	ghRepo, resp, err := client.Repositories.Get(ctx, ownerName, repoName)
-	if resp == nil || (err != nil && (resp.StatusCode != 404 && resp.StatusCode != 200)) {
+	if resp == nil || (err != nil && resp.StatusCode != 404) {
 		// response is nil or repository neither exists nor not exists
 		return nil, errors.Wrapf(err, "error checking repository %s/%s existence", ownerName, repoName)
 	}
@@ -275,6 +275,8 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 		} else {
 			return nil, errors.Wrapf(err, "error updating repository %s/%s", ownerName, repoName)
 		}
+	} else {
+		return nil, errors.Wrapf(err, "unexpected response status code %d", resp.StatusCode)
 	}
 
 	if ghRepo == nil {
