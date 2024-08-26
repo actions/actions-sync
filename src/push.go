@@ -258,7 +258,7 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 		} else {
 			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 		}
-	} else if resp.StatusCode == 200 {
+	} else if resp.StatusCode == 200 && ghRepo != nil {
 		// repo exists, update description if keepDescription flag is not set
 		var ghRepoDescription string
 		if !keepDescription {
@@ -268,10 +268,8 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 				return nil, errors.Wrapf(err, "error retrieving repository %s/%s", origOwnerName, origRepoName)
 			}
 			ghRepoDescription = origRepo.GetDescription()
-		} else if ghRepo != nil && keepDescription {
-			ghRepoDescription = *ghRepo.Description
 		} else {
-			return nil, errors.New("error repository is nil and is expected to already exist")
+			ghRepoDescription = *ghRepo.Description
 		}
 
 		repo := &github.Repository{
