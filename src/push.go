@@ -167,7 +167,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, tokenIdentifier stri
 	}
 
 	var repoDescription string
-	if flags.KeepDescription {
+	if !flags.KeepDescription {
 		githubClient := github.NewClient(nil)
 		origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
 		if err != nil {
