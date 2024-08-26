@@ -166,16 +166,6 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, tokenIdentifier stri
 		return err
 	}
 
-	var repoDescription string
-	if !flags.KeepDescription {
-		githubClient := github.NewClient(nil)
-		origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
-		if err != nil {
-			return err
-		}
-		repoDescription = origRepo.GetDescription()
-	}
-
 	ownerName, bareRepoName, err := splitNwo(nwo)
 	if err != nil {
 		return err
@@ -188,7 +178,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, tokenIdentifier stri
 	}
 
 	fmt.Printf("syncing `%s`\n", nwo)
-	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, tokenIdentifier, bareRepoName, ownerName, repoDescription, flags.KeepDescription)
+	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, tokenIdentifier, bareRepoName, ownerName, origOwnerName, origRepoName, flags.KeepDescription)
 	if err != nil {
 		return errors.Wrapf(err, "error creating github repository `%s`", nwo)
 	}
@@ -200,7 +190,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, tokenIdentifier stri
 	return nil
 }
 
-func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIdentifier string, repoName, ownerName string, repoDescription string, keepDescription bool) (*github.Repository, error) {
+func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIdentifier string, repoName, ownerName string, origOwnerName string, origRepoName string, keepDescription bool) (*github.Repository, error) {
 	var createRepoOrgName string
 	// if the token is a Server-to-Server token (GitHub App), user API is not available
 	if tokenIdentifier == "ghs" {
@@ -243,9 +233,18 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 			visibility = github.String("internal")
 		}
 
+		// always fetch description on new repo creation
+		var ghRepoDescription string
+		githubClient := github.NewClient(nil)
+		origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error retrieving repository %s/%s", origOwnerName, origRepoName)
+		}
+		ghRepoDescription = origRepo.GetDescription()
+
 		repo := &github.Repository{
 			Name:        github.String(repoName),
-			Description: &repoDescription,
+			Description: &ghRepoDescription,
 			HasIssues:   github.Bool(false),
 			HasWiki:     github.Bool(false),
 			HasPages:    github.Bool(false),
@@ -259,17 +258,26 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 		} else {
 			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 		}
-	} else if resp.StatusCode == 200 {
+	} else if resp.StatusCode == 200 && ghRepo != nil {
 		// repo exists, update description if keepDescription flag is not set
-		var ghRepoDescription *string
-		if ghRepo != nil && keepDescription {
-			ghRepoDescription = ghRepo.Description
+		var ghRepoDescription string
+		if !keepDescription {
+			githubClient := github.NewClient(nil)
+			origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error retrieving repository %s/%s", origOwnerName, origRepoName)
+			}
+			ghRepoDescription = origRepo.GetDescription()
 		} else {
-			ghRepoDescription = &repoDescription
+			if ghRepo.Description != nil {
+				ghRepoDescription = *ghRepo.Description
+			} else {
+				ghRepoDescription = ""
+			}
 		}
 
 		repo := &github.Repository{
-			Description: ghRepoDescription,
+			Description: &ghRepoDescription,
 		}
 
 		ghRepo, _, err = client.Repositories.Edit(ctx, ownerName, repoName, repo)
