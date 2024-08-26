@@ -233,8 +233,8 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 			visibility = github.String("internal")
 		}
 
-		// always fetch description on new repo creation, prevent SEGV on nil description in upstream repo
-		ghRepoDescription := ""
+		// always fetch description on new repo creation
+		var ghRepoDescription string
 		githubClient := github.NewClient(nil)
 		origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
 		if err != nil {
@@ -259,8 +259,8 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 		}
 	} else if resp.StatusCode == 200 && ghRepo != nil {
-		// repo exists, update description if keepDescription flag is not set, prevent SEGV on nil description in upstream repo
-		ghRepoDescription := ""
+		// repo exists, update description if keepDescription flag is not set
+		var ghRepoDescription string
 		if !keepDescription {
 			githubClient := github.NewClient(nil)
 			origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
@@ -269,7 +269,11 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIden
 			}
 			ghRepoDescription = origRepo.GetDescription()
 		} else {
-			ghRepoDescription = *ghRepo.Description
+			if ghRepo.Description != nil {
+				ghRepoDescription = *ghRepo.Description
+			} else {
+				ghRepoDescription = ""
+			}
 		}
 
 		repo := &github.Repository{
