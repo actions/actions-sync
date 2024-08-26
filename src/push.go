@@ -166,12 +166,15 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, tokenIdentifier stri
 		return err
 	}
 
-	githubClient := github.NewClient(nil)
-	origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
-	if err != nil {
-		return err
+	var repoDescription string
+	if !flags.KeepDescription {
+		githubClient := github.NewClient(nil)
+		origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
+		if err != nil {
+			return err
+		}
+		repoDescription = origRepo.GetDescription()
 	}
-	repoDescription := origRepo.GetDescription()
 
 	ownerName, bareRepoName, err := splitNwo(nwo)
 	if err != nil {
