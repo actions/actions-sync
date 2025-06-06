@@ -14,6 +14,24 @@ It is designed to work when:
 * The GitHub Enterprise instance is separate from the rest of the internet.
 * The GitHub Enterprise instance is connected to the rest of the internet.
 
+### Note
+
+Thank you for your interest in this GitHub action, however, right now we are not taking contributions. Add commentMore actionsAdd commentMore actions
+
+We continue to focus our resources on strategic areas that help our customers be successful while making developers' lives easier. While GitHub Actions remains a key part of this vision, we are allocating resources towards other areas of Actions and are not taking contributions to this repository at this time. The GitHub public roadmap is the best place to follow along for any updates on features we’re working on and what stage they’re in.
+
+We are taking the following steps to better direct requests related to GitHub Actions, including:
+
+1. We will be directing questions and support requests to our [Community Discussions area](https://github.com/orgs/community/discussions/categories/actions)
+
+2. High Priority bugs can be reported through Community Discussions or you can report these to our support team https://support.github.com/contact/bug-report.
+
+3. Security Issues should be handled as per our [security.md](security.md)
+
+We will still provide security updates for this project and fix major breaking changes during this time.
+
+You are welcome to still raise bugs in this repo.
+
 ## Connected instances
 
 When there are machines which have access to both the public internet and the GHES instance run `actions-sync sync`.
@@ -110,7 +128,3 @@ When no machine has access to both the public internet and the GHES instance:
 
 When creating a personal access token include the `repo` and `workflow` scopes. Include the `site_admin` scope (optional) if you want organizations to be created as necessary or you want to use the impersonation logic for the `push` or `sync` commands.
 
-## Contributing
-
-If you would like to contribute your work back to the project, please see
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
