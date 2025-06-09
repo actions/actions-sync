@@ -44,6 +44,8 @@ When there are machines which have access to both the public internet and the GH
 
 - `cache-dir` _(required)_
    The directory in which to cache repositories as they are synced. This speeds up re-syncing.
+- `default-branch-only` _(optional)_
+   Optionally if you wish to only synchronize the single default branch rather than the default behaviour of syncing all branches.
 - `destination-url` _(required)_
    The URL of the GHES instance to sync repositories onto.
 - `destination-token` _(required)_
@@ -83,6 +85,8 @@ When no machine has access to both the public internet and the GHES instance:
 
 - `cache-dir` _(required)_
    The directory to cache the pulled repositories into.
+- `default-branch-only` _(optional)_
+   Optionally if you wish to only synchronize the single default branch rather than the default behaviour of syncing all branches.
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
