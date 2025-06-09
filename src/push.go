@@ -24,7 +24,7 @@ const xOAuthScopesHeader = "X-OAuth-Scopes"
 
 type PushOnlyFlags struct {
 	BaseURL, Token, ActionsAdminUser string
-	DisableGitAuth                   bool
+	DisableGitAuth, KeepDescription  bool
 }
 
 type PushFlags struct {
@@ -42,6 +42,7 @@ func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
+	cmd.Flags().BoolVar(&f.KeepDescription, "keep-description", false, "Wether to keep the description of the source destination repository or not")
 }
 
 func (f *PushFlags) Validate() Validations {
@@ -136,20 +137,31 @@ func Push(ctx context.Context, flags *PushFlags) error {
 		}
 	}
 
-	return PushManyWithGitImpl(ctx, flags, repoNames, ghClient, gitImplementation{})
+	tokenIdentifierSplit := strings.Split(flags.Token, "_")
+	if len(tokenIdentifierSplit) != 2 {
+		return errors.New("token is not in the expected format")
+	}
+	tokenIdentifier := tokenIdentifierSplit[0]
+
+	return PushManyWithGitImpl(ctx, flags, tokenIdentifier, repoNames, ghClient, gitImplementation{})
 }
 
-func PushManyWithGitImpl(ctx context.Context, flags *PushFlags, repoNames []string, ghClient *github.Client, gitimpl GitImplementation) error {
+func PushManyWithGitImpl(ctx context.Context, flags *PushFlags, tokenIdentifier string, repoNames []string, ghClient *github.Client, gitimpl GitImplementation) error {
 	for _, repoName := range repoNames {
-		if err := PushWithGitImpl(ctx, flags, repoName, ghClient, gitimpl); err != nil {
+		if err := PushWithGitImpl(ctx, flags, tokenIdentifier, repoName, ghClient, gitimpl); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghClient *github.Client, gitimpl GitImplementation) error {
-	_, nwo, err := extractSourceDest(repoName)
+func PushWithGitImpl(ctx context.Context, flags *PushFlags, tokenIdentifier string, repoName string, ghClient *github.Client, gitimpl GitImplementation) error {
+	orig, nwo, err := extractSourceDest(repoName)
+	if err != nil {
+		return err
+	}
+
+	origOwnerName, origRepoName, err := splitNwo(orig)
 	if err != nil {
 		return err
 	}
@@ -166,7 +178,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	}
 
 	fmt.Printf("syncing `%s`\n", nwo)
-	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, bareRepoName, ownerName)
+	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, tokenIdentifier, bareRepoName, ownerName, origOwnerName, origRepoName, flags.KeepDescription)
 	if err != nil {
 		return errors.Wrapf(err, "error creating github repository `%s`", nwo)
 	}
@@ -178,45 +190,61 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	return nil
 }
 
-func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
-	// retrieve user associated to authentication credentials provided
-	currentUser, userResponse, err := client.Users.Get(ctx, "")
-	if err != nil {
-		return nil, errors.Wrap(err, "error retrieving authenticated user")
-	}
-	if currentUser == nil || currentUser.Login == nil {
-		return nil, errors.New("error retrieving authenticated user's login name")
-	}
-	// checking if we talk to GHAE
-	isAE := userResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
-
-	// check if the owner refers to the authenticated user or an organization.
+func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, tokenIdentifier string, repoName, ownerName string, origOwnerName string, origRepoName string, keepDescription bool) (*github.Repository, error) {
 	var createRepoOrgName string
-	if strings.EqualFold(*currentUser.Login, ownerName) {
-		// we'll create the repo under the authenticated user's account.
-		createRepoOrgName = ""
-	} else {
-		// ensure the org exists.
+	// if the token is a Server-to-Server token (GitHub App), user API is not available
+	if tokenIdentifier == "ghs" {
 		createRepoOrgName = ownerName
-		_, err := getOrCreateGitHubOrg(ctx, client, ownerName, *currentUser.Login)
+	} else {
+		// retrieve user associated to authentication credentials provided
+		currentUser, _, err := client.Users.Get(ctx, "")
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error retrieving authenticated user")
+		}
+		if currentUser == nil || currentUser.Login == nil {
+			return nil, errors.New("error retrieving authenticated user's login name")
+		}
+
+		// check if the owner refers to the authenticated user or an organization.
+		if strings.EqualFold(*currentUser.Login, ownerName) {
+			// we'll create the repo under the authenticated user's account.
+			createRepoOrgName = ""
+		} else {
+			// ensure the org exists.
+			createRepoOrgName = ownerName
+			_, err := getOrCreateGitHubOrg(ctx, client, ownerName, *currentUser.Login)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	// check if repository already exists
 	ghRepo, resp, err := client.Repositories.Get(ctx, ownerName, repoName)
+	if resp == nil || (err != nil && resp.StatusCode != 404) {
+		// response is nil or repository neither exists nor not exists
+		return nil, errors.Wrapf(err, "error checking repository %s/%s existence", ownerName, repoName)
+	}
 
-	if err == nil {
-		fmt.Printf("Existing repo `%s/%s`\n", ownerName, repoName)
-	} else if resp != nil && resp.StatusCode == 404 {
+	if resp.StatusCode == 404 {
 		// repo not existing yet - try to create
 		visibility := github.String("public")
-		if isAE {
+		if resp.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue {
 			visibility = github.String("internal")
 		}
+
+		// always fetch description on new repo creation
+		var ghRepoDescription string
+		githubClient := github.NewClient(nil)
+		origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error retrieving repository %s/%s", origOwnerName, origRepoName)
+		}
+		ghRepoDescription = origRepo.GetDescription()
+
 		repo := &github.Repository{
 			Name:        github.String(repoName),
+			Description: &ghRepoDescription,
 			HasIssues:   github.Bool(false),
 			HasWiki:     github.Bool(false),
 			HasPages:    github.Bool(false),
@@ -230,13 +258,42 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		} else {
 			return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
 		}
-	} else if err != nil {
-		return nil, errors.Wrapf(err, "error creating repository %s/%s", ownerName, repoName)
+	} else if resp.StatusCode == 200 && ghRepo != nil {
+		// repo exists, update description if keepDescription flag is not set
+		var ghRepoDescription string
+		if !keepDescription {
+			githubClient := github.NewClient(nil)
+			origRepo, _, err := githubClient.Repositories.Get(ctx, origOwnerName, origRepoName)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error retrieving repository %s/%s", origOwnerName, origRepoName)
+			}
+			ghRepoDescription = origRepo.GetDescription()
+		} else {
+			if ghRepo.Description != nil {
+				ghRepoDescription = *ghRepo.Description
+			} else {
+				ghRepoDescription = ""
+			}
+		}
+
+		repo := &github.Repository{
+			Description: &ghRepoDescription,
+		}
+
+		ghRepo, _, err = client.Repositories.Edit(ctx, ownerName, repoName, repo)
+		if err == nil {
+			fmt.Printf("Updated repo `%s/%s`\n", ownerName, repoName)
+		} else {
+			return nil, errors.Wrapf(err, "error updating repository %s/%s", ownerName, repoName)
+		}
+	} else {
+		return nil, errors.Wrapf(err, "unexpected response status code %d", resp.StatusCode)
 	}
 
 	if ghRepo == nil {
 		return nil, errors.New("error repository is nil")
 	}
+
 	return ghRepo, nil
 }
 
