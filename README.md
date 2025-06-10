@@ -16,7 +16,7 @@ It is designed to work when:
 
 ### Note
 
-Thank you for your interest in this GitHub action, however, right now we are not taking contributions. Add commentMore actionsAdd commentMore actions
+Thank you for your interest in this GitHub action, however, right now we are not taking contributions.
 
 We continue to focus our resources on strategic areas that help our customers be successful while making developers' lives easier. While GitHub Actions remains a key part of this vision, we are allocating resources towards other areas of Actions and are not taking contributions to this repository at this time. The GitHub public roadmap is the best place to follow along for any updates on features we’re working on and what stage they’re in.
 
