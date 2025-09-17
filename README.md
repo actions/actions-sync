@@ -14,6 +14,8 @@ It is designed to work when:
 * The GitHub Enterprise instance is separate from the rest of the internet.
 * The GitHub Enterprise instance is connected to the rest of the internet.
 
+To sync the [CodeQL Action](https://github.com/github/codeql-action), please use the [CodeQL Action Sync Tool](https://github.com/github/codeql-action-sync-tool). 
+
 ### Note
 
 Thank you for your interest in this GitHub action, however, right now we are not taking contributions.
