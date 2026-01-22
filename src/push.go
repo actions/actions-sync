@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/google/go-github/v43/github"
@@ -22,9 +23,16 @@ const enterpriseAPIPath = "/api/v3"
 const enterpriseVersionHeaderKey = "X-GitHub-Enterprise-Version"
 const xOAuthScopesHeader = "X-OAuth-Scopes"
 
+// DefaultBatchSize of 0 means no batching (push all refs at once, original behavior)
+const DefaultBatchSize = 0
+
+// MinBatchSize is the minimum allowed batch size when batching is enabled
+const MinBatchSize = 10
+
 type PushOnlyFlags struct {
 	BaseURL, Token, ActionsAdminUser string
 	DisableGitAuth                   bool
+	BatchSize                        int
 }
 
 type PushFlags struct {
@@ -42,6 +50,7 @@ func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
+	cmd.Flags().IntVar(&f.BatchSize, "batch-size", DefaultBatchSize, "Number of refs to push in each batch (0 = no batching). Use a value like 100 if pushing fails for large repositories.")
 }
 
 func (f *PushFlags) Validate() Validations {
@@ -55,6 +64,9 @@ func (f *PushOnlyFlags) Validate() Validations {
 	}
 	if f.Token == "" {
 		validations = append(validations, "--destination-token must be set")
+	}
+	if f.BatchSize != 0 && f.BatchSize < MinBatchSize {
+		validations = append(validations, fmt.Sprintf("--batch-size must be 0 (no batching) or at least %d", MinBatchSize))
 	}
 	return validations
 }
@@ -282,16 +294,93 @@ func syncWithCachedRepository(ctx context.Context, flags *PushFlags, ghRepo *git
 			Password: flags.Token,
 		}
 	}
-	err = remote.PushContext(ctx, &git.PushOptions{
-		RemoteName: remote.Config().Name,
-		RefSpecs: []config.RefSpec{
-			"+refs/heads/*:refs/heads/*",
-			"+refs/tags/*:refs/tags/*",
-		},
-		Auth: auth,
+
+	// If batch size is 0 or negative, use original wildcard approach (no batching)
+	if flags.BatchSize <= 0 {
+		err = remote.PushContext(ctx, &git.PushOptions{
+			RemoteName: remote.Config().Name,
+			RefSpecs: []config.RefSpec{
+				"+refs/heads/*:refs/heads/*",
+				"+refs/tags/*:refs/tags/*",
+			},
+			Auth: auth,
+		})
+		if errors.Cause(err) == git.NoErrAlreadyUpToDate {
+			return nil
+		}
+		return errors.Wrapf(err, "failed to push to repo: %s", ghRepo.GetCloneURL())
+	}
+
+	// Batching requested - collect all refs and push in batches
+	refs, err := collectRefs(gitRepo)
+	if err != nil {
+		return errors.Wrap(err, "error collecting refs")
+	}
+
+	return pushRefsInBatches(ctx, remote, refs, flags.BatchSize, auth, ghRepo.GetCloneURL())
+}
+
+// collectRefs gathers all branch and tag refs from the repository
+func collectRefs(gitRepo GitRepository) ([]plumbing.ReferenceName, error) {
+	refIter, err := gitRepo.References()
+	if err != nil {
+		return nil, err
+	}
+
+	var refs []plumbing.ReferenceName
+	err = refIter.ForEach(func(ref *plumbing.Reference) error {
+		name := ref.Name()
+		// Only include branches and tags
+		if name.IsBranch() || name.IsTag() {
+			refs = append(refs, name)
+		}
+		return nil
 	})
-	if errors.Cause(err) == git.NoErrAlreadyUpToDate {
+	if err != nil {
+		return nil, err
+	}
+
+	return refs, nil
+}
+
+// pushRefsInBatches pushes refs in smaller batches to avoid server-side limits
+func pushRefsInBatches(ctx context.Context, remote GitRemote, refs []plumbing.ReferenceName, batchSize int, auth transport.AuthMethod, cloneURL string) error {
+	totalRefs := len(refs)
+	pushedAny := false
+
+	for i := 0; i < totalRefs; i += batchSize {
+		end := i + batchSize
+		if end > totalRefs {
+			end = totalRefs
+		}
+
+		batch := refs[i:end]
+		refSpecs := make([]config.RefSpec, len(batch))
+		for j, ref := range batch {
+			// Create a refspec like "+refs/heads/main:refs/heads/main"
+			refSpecs[j] = config.RefSpec("+" + ref.String() + ":" + ref.String())
+		}
+
+		err := remote.PushContext(ctx, &git.PushOptions{
+			RemoteName: remote.Config().Name,
+			RefSpecs:   refSpecs,
+			Auth:       auth,
+		})
+
+		if err != nil {
+			if errors.Cause(err) == git.NoErrAlreadyUpToDate {
+				// This batch was already up to date, continue to next batch
+				continue
+			}
+			return errors.Wrapf(err, "failed to push batch %d-%d of %d refs to repo: %s", i+1, end, totalRefs, cloneURL)
+		}
+		pushedAny = true
+	}
+
+	// If we didn't push anything and no errors, everything was up to date
+	if !pushedAny {
 		return nil
 	}
-	return errors.Wrapf(err, "failed to push to repo: %s", ghRepo.GetCloneURL())
+
+	return nil
 }

@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 )
 
 // A really thin Git wrapper so we can stub it out in our tests
@@ -19,6 +21,13 @@ type GitRepository interface {
 	DeleteRemote(string) error
 	CreateRemote(*config.RemoteConfig) (GitRemote, error)
 	FetchContext(context.Context, *git.FetchOptions) error
+	References() (storer.ReferenceIter, error)
+}
+
+// RefInfo contains information about a git reference
+type RefInfo struct {
+	Name plumbing.ReferenceName
+	Hash plumbing.Hash
 }
 
 type GitRemote interface {
@@ -64,4 +73,8 @@ func (r *gitRepository) CreateRemote(c *config.RemoteConfig) (GitRemote, error) 
 
 func (r *gitRepository) FetchContext(ctx context.Context, o *git.FetchOptions) error {
 	return r.inner.FetchContext(ctx, o)
+}
+
+func (r *gitRepository) References() (storer.ReferenceIter, error) {
+	return r.inner.References()
 }
