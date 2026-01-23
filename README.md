@@ -56,6 +56,8 @@ When there are machines which have access to both the public internet and the GH
    A path to a file containing a newline separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `actions-admin-user` _(optional)_
    The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
+- `batch-size` _(optional)_
+   Number of refs to push in each batch. Default is 0 (no batching). Use a value like 100 if pushing fails for large repositories with many branches and tags.
 
 **Example Usage:**
 
@@ -114,6 +116,8 @@ When no machine has access to both the public internet and the GHES instance:
    Limit push to specific repositories in the cache directory.
 - `actions-admin-user` _(optional)_
    The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
+- `batch-size` _(optional)_
+   Number of refs to push in each batch. Default is 0 (no batching). Use a value like 100 if pushing fails for large repositories with many branches and tags.
 
 **Example Usage:**
 
