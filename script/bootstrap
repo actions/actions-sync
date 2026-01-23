@@ -18,12 +18,12 @@ if [ ! -f go.mod ]; then
     go mod init tools
 fi
 
-go get golang.org/x/tools/go/packages@master
+go get golang.org/x/tools/go/packages@v0.16.0
 
 if [ ! -f "${GOBIN}/mockgen" ]; then
     echo "mockgen was not found, installing..."
-    go get github.com/golang/mock/gomock@master
-    go get github.com/golang/mock/mockgen@master
+    go get github.com/golang/mock/gomock@v1.6.0
+    go get github.com/golang/mock/mockgen@v1.6.0
 fi
 
 if [ ! -f "${GOBIN}/golangci-lint" ]; then
@@ -33,5 +33,5 @@ fi
 
 if [ ! -f "${GOBIN}/goimports" ]; then
     echo "goimports was not found, installing..."
-    go get golang.org/x/tools/cmd/goimports@master
+    go get golang.org/x/tools/cmd/goimports@v0.16.0
 fi
