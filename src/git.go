@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 )
 
@@ -22,12 +21,6 @@ type GitRepository interface {
 	CreateRemote(*config.RemoteConfig) (GitRemote, error)
 	FetchContext(context.Context, *git.FetchOptions) error
 	References() (storer.ReferenceIter, error)
-}
-
-// RefInfo contains information about a git reference
-type RefInfo struct {
-	Name plumbing.ReferenceName
-	Hash plumbing.Hash
 }
 
 type GitRemote interface {

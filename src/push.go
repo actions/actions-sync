@@ -346,7 +346,6 @@ func collectRefs(gitRepo GitRepository) ([]plumbing.ReferenceName, error) {
 // pushRefsInBatches pushes refs in smaller batches to avoid server-side limits
 func pushRefsInBatches(ctx context.Context, remote GitRemote, refs []plumbing.ReferenceName, batchSize int, auth transport.AuthMethod, cloneURL string) error {
 	totalRefs := len(refs)
-	pushedAny := false
 
 	for i := 0; i < totalRefs; i += batchSize {
 		end := i + batchSize
@@ -374,12 +373,6 @@ func pushRefsInBatches(ctx context.Context, remote GitRemote, refs []plumbing.Re
 			}
 			return errors.Wrapf(err, "failed to push batch %d-%d of %d refs to repo: %s", i+1, end, totalRefs, cloneURL)
 		}
-		pushedAny = true
-	}
-
-	// If we didn't push anything and no errors, everything was up to date
-	if !pushedAny {
-		return nil
 	}
 
 	return nil

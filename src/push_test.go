@@ -383,27 +383,6 @@ func TestPushRefsInBatches_BatchSizes(t *testing.T) {
 	assert.Len(t, remote.pushCalls[2], 5)
 }
 
-func TestPushRefsInBatches_PartialUpToDate(t *testing.T) {
-	// Test that we continue pushing even if some batches are already up to date
-	refs := createNRefs(20)
-
-	pushCount := 0
-	remote := &mockGitRemote{
-		alreadyUpToDate: false,
-	}
-
-	// Override the push behavior to return up-to-date for first batch only
-	originalPush := remote.PushContext
-	_ = originalPush
-	
-	// We need a more sophisticated mock for this test
-	// For now, just verify the basic flow works
-	err := pushRefsInBatches(context.Background(), remote, refs, 10, nil, "https://example.com/repo.git")
-
-	require.NoError(t, err)
-	_ = pushCount
-}
-
 // Tests for constants
 
 func TestConstants(t *testing.T) {
