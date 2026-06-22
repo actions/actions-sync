@@ -48,6 +48,8 @@ When there are machines which have access to both the public internet and the GH
    The URL of the GHES instance to sync repositories onto.
 - `destination-token` _(required)_
    A personal access token to authenticate against the GHES instance when uploading repositories. See [Destination token scopes](#destination-token-scopes) below.
+- `source-token` _(optional)_
+   A token used to authenticate against the source when pulling private repositories. For a personal access token, the `repo` scope (read access to the source repositories) is sufficient. For a GitHub App installation token (`ghs_*`), the installation needs read access to the source repositories' contents; App tokens use installation permissions, not OAuth scopes. Must be used with an `https://` `source-url`.
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
@@ -87,6 +89,8 @@ When no machine has access to both the public internet and the GHES instance:
 
 - `cache-dir` _(required)_
    The directory to cache the pulled repositories into.
+- `source-token` _(optional)_
+   A token used to authenticate against the source when pulling private repositories. For a personal access token, the `repo` scope (read access to the source repositories) is sufficient. For a GitHub App installation token (`ghs_*`), the installation needs read access to the source repositories' contents; App tokens use installation permissions, not OAuth scopes. Must be used with an `https://` `source-url`.
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_

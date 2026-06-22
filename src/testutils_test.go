@@ -14,6 +14,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/storer"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/google/go-github/v43/github"
 	"github.com/stretchr/testify/require"
 )
@@ -99,6 +100,54 @@ func (m *mockGitRemote) Config() *config.RemoteConfig {
 		return m.remoteConfig
 	}
 	return &config.RemoteConfig{Name: "test-remote"}
+}
+
+// fakePullGitImpl is a GitImplementation test double that records the auth
+// handed to clone/fetch so tests can assert the source token is threaded all
+// the way down to git operations. cloneErr, when set, makes CloneRepository
+// fail so error paths can be exercised.
+type fakePullGitImpl struct {
+	exists     bool
+	repo       *fakePullRepo
+	cloneAuth  transport.AuthMethod
+	cloneCount int
+	cloneErr   error
+}
+
+func (f *fakePullGitImpl) NewGitRepository(dir string) (GitRepository, error) {
+	return f.repo, nil
+}
+
+func (f *fakePullGitImpl) CloneRepository(dir string, o *git.CloneOptions) (GitRepository, error) {
+	f.cloneAuth = o.Auth
+	f.cloneCount++
+	if f.cloneErr != nil {
+		return nil, f.cloneErr
+	}
+	return f.repo, nil
+}
+
+func (f *fakePullGitImpl) RepositoryExists(dir string) bool {
+	return f.exists
+}
+
+// fakePullRepo is a GitRepository test double that records the auth used on
+// FetchContext. fetchErr, when set, makes FetchContext fail so error paths can
+// be exercised.
+type fakePullRepo struct {
+	fetchAuth   transport.AuthMethod
+	fetchCalled bool
+	fetchErr    error
+}
+
+func (r *fakePullRepo) DeleteRemote(string) error                            { return nil }
+func (r *fakePullRepo) CreateRemote(*config.RemoteConfig) (GitRemote, error) { return nil, nil }
+func (r *fakePullRepo) References() (storer.ReferenceIter, error)            { return nil, nil }
+
+func (r *fakePullRepo) FetchContext(ctx context.Context, o *git.FetchOptions) error {
+	r.fetchCalled = true
+	r.fetchAuth = o.Auth
+	return r.fetchErr
 }
 
 // createNRefs returns n distinct branch reference names, useful for batching tests.
