@@ -38,6 +38,16 @@ func main() {
 
 	r.HandleFunc("/api/v3/user", func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Authorization")
+		// GitHub App installation tokens (ghs_*) have no user context; the user
+		// API returns 403. With --github-app-auth this endpoint should never be hit.
+		if strings.Contains(token, "ghs_") {
+			w.WriteHeader(http.StatusForbidden)
+			_, err := w.Write([]byte(`{"message":"Resource not accessible by integration"}`))
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
 		if strings.Contains(token, "ghaetoken") {
 			w.Header().Set("x-github-enterprise-version", "GitHub AE")
 		}

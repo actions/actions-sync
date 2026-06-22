@@ -133,6 +133,12 @@ function test_push() {
   setup_dest "org-already-exists/ghes-repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
   push_impersonation "ghes-admin" "pushing to GHES repo"
 
+  # Push with GitHub App auth (ghs_* token, user API unavailable)
+  setup_cache "org-already-exists/app-repo:heads/main:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  setup_dest "org-already-exists/app-repo:heads/main:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+  push_github_app "pushing with GitHub App auth"
+  assert_dest_sha "org-already-exists/app-repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org-already-exists/app-repo with GitHub App auth"
+
   echo "all push tests passed successfully"
 }
 
@@ -344,6 +350,17 @@ function push_impersonation() {
     --actions-admin-user $1 \
     &>$OUTPUT ||
     fail "$2"
+}
+
+function push_github_app() {
+  bin/actions-sync push \
+    --cache-dir "test/tmp/cache" \
+    --disable-push-git-auth \
+    --destination-token "ghs_installationtoken" \
+    --destination-url "http://localhost:$DEST_API_PORT" \
+    --github-app-auth \
+    &>$OUTPUT ||
+    fail "$1"
 }
 
 function sync() {

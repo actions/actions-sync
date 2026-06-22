@@ -2,13 +2,17 @@ package src
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/storer"
+	"github.com/google/go-github/v43/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,10 +72,10 @@ func (m *mockGitRepository) References() (storer.ReferenceIter, error) {
 }
 
 type mockGitRemote struct {
-	pushCalls      [][]config.RefSpec
-	pushError      error
+	pushCalls       [][]config.RefSpec
+	pushError       error
 	alreadyUpToDate bool
-	remoteConfig   *config.RemoteConfig
+	remoteConfig    *config.RemoteConfig
 }
 
 func (m *mockGitRemote) PushContext(ctx context.Context, o *git.PushOptions) error {
@@ -279,8 +283,8 @@ func TestPushRefsInBatches(t *testing.T) {
 			expectedBatches: 1,
 		},
 		{
-			name: "single batch - exact batch size",
-			refs: createNRefs(10),
+			name:            "single batch - exact batch size",
+			refs:            createNRefs(10),
 			batchSize:       10,
 			expectedBatches: 1,
 		},
@@ -397,4 +401,135 @@ func createNRefs(n int) []plumbing.ReferenceName {
 		refs[i] = plumbing.NewBranchReferenceName(fmt.Sprintf("branch-%d", i))
 	}
 	return refs
+}
+
+// newTestGitHubClient returns a github.Client whose API requests are routed to
+// the provided test server.
+func newTestGitHubClient(t *testing.T, serverURL string) *github.Client {
+	t.Helper()
+	client, err := github.NewEnterpriseClient(serverURL, serverURL, nil)
+	require.NoError(t, err)
+	return client
+}
+
+// Tests for the --github-app-auth flag
+
+func TestPushOnlyFlags_GitHubAppAuth_Valid(t *testing.T) {
+	flags := PushOnlyFlags{
+		BaseURL:   "https://example.com",
+		Token:     "ghs_token",
+		GitHubApp: true,
+	}
+
+	validations := flags.Validate()
+
+	for _, v := range validations {
+		assert.NotContains(t, v, "github-app-auth", "unexpected github-app-auth validation error")
+	}
+}
+
+// Tests for resolveCreateOrgName
+
+func TestResolveCreateOrgName_GitHubApp(t *testing.T) {
+	// With App auth the user API must never be called, so a nil client is safe.
+	orgName, isAE, aeDetermined, err := resolveCreateOrgName(context.Background(), nil, "my-org", true)
+
+	require.NoError(t, err)
+	assert.Equal(t, "my-org", orgName)
+	assert.False(t, isAE)
+	assert.False(t, aeDetermined, "AE determination is deferred to the caller for App auth")
+}
+
+func TestResolveCreateOrgName_PAT_OwnerIsAuthenticatedUser(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v3/user":
+			user := github.User{Login: github.String("monalisa")}
+			b, _ := json.Marshal(user)
+			_, _ = w.Write(b)
+		default:
+			t.Errorf("unexpected request to %s", r.URL.Path)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestGitHubClient(t, server.URL)
+
+	orgName, _, aeDetermined, err := resolveCreateOrgName(context.Background(), client, "monalisa", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, "", orgName, "repo should be created under the authenticated user's account")
+	assert.True(t, aeDetermined)
+}
+
+func TestResolveCreateOrgName_PAT_OwnerIsOrg(t *testing.T) {
+	createOrgCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v3/user":
+			user := github.User{Login: github.String("monalisa")}
+			b, _ := json.Marshal(user)
+			_, _ = w.Write(b)
+		case r.URL.Path == "/api/v3/admin/organizations" && r.Method == http.MethodPost:
+			createOrgCalled = true
+			org := github.Organization{Login: github.String("my-org")}
+			b, _ := json.Marshal(org)
+			_, _ = w.Write(b)
+		default:
+			t.Errorf("unexpected request to %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestGitHubClient(t, server.URL)
+
+	orgName, _, aeDetermined, err := resolveCreateOrgName(context.Background(), client, "my-org", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, "my-org", orgName)
+	assert.True(t, aeDetermined)
+	assert.True(t, createOrgCalled, "expected org creation to be attempted")
+}
+
+func TestResolveCreateOrgName_PAT_GitHubAE(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v3/user" {
+			w.Header().Set(enterpriseVersionHeaderKey, enterpriseAegisVersionHeaderValue)
+			user := github.User{Login: github.String("monalisa")}
+			b, _ := json.Marshal(user)
+			_, _ = w.Write(b)
+			return
+		}
+		t.Errorf("unexpected request to %s", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := newTestGitHubClient(t, server.URL)
+
+	orgName, isAE, aeDetermined, err := resolveCreateOrgName(context.Background(), client, "monalisa", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, "", orgName)
+	assert.True(t, isAE, "AE should be detected from the user response header")
+	assert.True(t, aeDetermined)
+}
+
+func TestResolveCreateOrgName_PAT_UserError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate a ghs_* token hitting the user API: no user context available.
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message":"Resource not accessible by integration"}`))
+	}))
+	defer server.Close()
+
+	client := newTestGitHubClient(t, server.URL)
+
+	orgName, _, _, err := resolveCreateOrgName(context.Background(), client, "my-org", false)
+
+	require.Error(t, err)
+	assert.Equal(t, "", orgName)
+	assert.Contains(t, err.Error(), "--github-app-auth", "error should hint at GitHub App auth flag")
 }
