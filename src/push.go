@@ -315,7 +315,7 @@ func syncWithCachedRepository(ctx context.Context, flags *PushFlags, ghRepo *git
 	var auth transport.AuthMethod
 	if !flags.DisableGitAuth {
 		auth = &http.BasicAuth{
-			Username: "username",
+			Username: "x-access-token",
 			Password: flags.Token,
 		}
 	}
