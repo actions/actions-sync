@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
@@ -517,6 +519,27 @@ func TestResolveCreateOrgName_PAT_GitHubAE(t *testing.T) {
 	assert.True(t, aeDetermined)
 }
 
+func TestResolveCreateOrgName_PAT_NilLogin(t *testing.T) {
+	// Regression: a user response with no login must produce a clear error.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v3/user" {
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		t.Errorf("unexpected request to %s", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := newTestGitHubClient(t, server.URL)
+
+	orgName, _, _, err := resolveCreateOrgName(context.Background(), client, "my-org", false)
+
+	require.Error(t, err)
+	assert.Equal(t, "", orgName)
+	assert.Contains(t, err.Error(), "login name")
+}
+
 func TestResolveCreateOrgName_PAT_UserError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate a ghs_* token hitting the user API: no user context available.
@@ -532,4 +555,296 @@ func TestResolveCreateOrgName_PAT_UserError(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "", orgName)
 	assert.Contains(t, err.Error(), "--github-app-auth", "error should hint at GitHub App auth flag")
+}
+
+// fakeGitHub is a configurable mock of the GitHub REST API exercised by
+// getOrCreateGitHubRepo. It records which endpoints were hit so tests can assert
+// on the resulting behaviour (e.g. that App auth never calls /user and that
+// repositories are created under the expected owner with the expected visibility).
+type fakeGitHub struct {
+	// config
+	userLogin         string // login returned by GET /user
+	userAE            bool   // set the AE version header on the GET /user response
+	userStatus        int    // override GET /user status (0 => 200)
+	repoExists        bool   // GET /repos/{owner}/{repo} returns 200 vs 404
+	repoGetAE         bool   // set the AE version header on the GET /repos response
+	repoGetStatus     int    // override GET /repos status (0 => derived from repoExists)
+	createRepoStatus  int    // override POST repos status (0 => 201 Created)
+	orgCreateConflict bool   // POST /admin/organizations returns 422 (already exists)
+	orgGetExists      bool   // GET /orgs/{org} returns 200 (used as create fallback)
+
+	// recorded
+	userCalled       bool
+	created          bool
+	createdUnderUser bool
+	createdOrg       string
+	createdName      string
+	createdVis       string
+	createOrgCalled  bool
+	orgGetCalled     bool
+}
+
+func (f *fakeGitHub) handler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v3/user" && r.Method == http.MethodGet:
+			f.userCalled = true
+			if f.userStatus != 0 {
+				w.WriteHeader(f.userStatus)
+				_, _ = w.Write([]byte(`{"message":"no user context"}`))
+				return
+			}
+			if f.userAE {
+				w.Header().Set(enterpriseVersionHeaderKey, enterpriseAegisVersionHeaderValue)
+			}
+			login := f.userLogin
+			b, _ := json.Marshal(github.User{Login: &login})
+			_, _ = w.Write(b)
+
+		case strings.HasPrefix(r.URL.Path, "/api/v3/repos/") && r.Method == http.MethodGet:
+			parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v3/repos/"), "/")
+			owner, repo := parts[0], parts[1]
+			status := f.repoGetStatus
+			if status == 0 {
+				if f.repoExists {
+					status = http.StatusOK
+				} else {
+					status = http.StatusNotFound
+				}
+			}
+			if f.repoGetAE {
+				w.Header().Set(enterpriseVersionHeaderKey, enterpriseAegisVersionHeaderValue)
+			}
+			if status == http.StatusOK {
+				cloneURL := "https://example.com/" + owner + "/" + repo + ".git"
+				b, _ := json.Marshal(github.Repository{Name: github.String(repo), CloneURL: &cloneURL})
+				_, _ = w.Write(b)
+				return
+			}
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(`{"message":"not found"}`))
+
+		case strings.HasPrefix(r.URL.Path, "/api/v3/orgs/") && strings.HasSuffix(r.URL.Path, "/repos") && r.Method == http.MethodPost:
+			org := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v3/orgs/"), "/repos")
+			f.createdOrg = org
+			f.recordCreate(r, w, org)
+
+		case r.URL.Path == "/api/v3/user/repos" && r.Method == http.MethodPost:
+			f.createdUnderUser = true
+			f.recordCreate(r, w, "")
+
+		case r.URL.Path == "/api/v3/admin/organizations" && r.Method == http.MethodPost:
+			f.createOrgCalled = true
+			if f.orgCreateConflict {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				_, _ = w.Write([]byte(`{"message":"Organization already exists"}`))
+				return
+			}
+			var body struct {
+				Login string `json:"login"`
+			}
+			data, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(data, &body)
+			b, _ := json.Marshal(github.Organization{Login: github.String(body.Login)})
+			_, _ = w.Write(b)
+
+		case strings.HasPrefix(r.URL.Path, "/api/v3/orgs/") && r.Method == http.MethodGet:
+			f.orgGetCalled = true
+			org := strings.TrimPrefix(r.URL.Path, "/api/v3/orgs/")
+			if !f.orgGetExists {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"message":"not found"}`))
+				return
+			}
+			b, _ := json.Marshal(github.Organization{Login: github.String(org)})
+			_, _ = w.Write(b)
+
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}
+
+func (f *fakeGitHub) recordCreate(r *http.Request, w http.ResponseWriter, org string) {
+	f.created = true
+	var body struct {
+		Name       string `json:"name"`
+		Visibility string `json:"visibility"`
+	}
+	data, _ := io.ReadAll(r.Body)
+	_ = json.Unmarshal(data, &body)
+	f.createdName = body.Name
+	f.createdVis = body.Visibility
+	if f.createRepoStatus != 0 {
+		w.WriteHeader(f.createRepoStatus)
+		_, _ = w.Write([]byte(`{"message":"validation failed"}`))
+		return
+	}
+	cloneURL := "https://example.com/" + org + "/" + body.Name + ".git"
+	w.WriteHeader(http.StatusCreated)
+	b, _ := json.Marshal(github.Repository{Name: github.String(body.Name), CloneURL: &cloneURL})
+	_, _ = w.Write(b)
+}
+
+func (f *fakeGitHub) start(t *testing.T) *github.Client {
+	t.Helper()
+	server := httptest.NewServer(f.handler(t))
+	t.Cleanup(server.Close)
+	return newTestGitHubClient(t, server.URL)
+}
+
+// Tests for getOrCreateGitHubRepo with GitHub App auth (new behaviour)
+
+func TestGetOrCreateGitHubRepo_GitHubApp_CreatesUnderOrg(t *testing.T) {
+	f := &fakeGitHub{repoExists: false}
+	client := f.start(t)
+
+	repo, err := getOrCreateGitHubRepo(context.Background(), client, "my-repo", "my-org", true)
+
+	require.NoError(t, err)
+	require.NotNil(t, repo)
+	assert.Equal(t, "my-repo", repo.GetName())
+	assert.False(t, f.userCalled, "App auth must not call the user API")
+	assert.True(t, f.created, "missing repo should be created")
+	assert.False(t, f.createdUnderUser, "App auth must create under the org, not a user account")
+	assert.Equal(t, "my-org", f.createdOrg, "repo should be created under the owner from the repo name")
+	assert.Equal(t, "public", f.createdVis)
+}
+
+func TestGetOrCreateGitHubRepo_GitHubApp_ExistingRepo(t *testing.T) {
+	f := &fakeGitHub{repoExists: true}
+	client := f.start(t)
+
+	repo, err := getOrCreateGitHubRepo(context.Background(), client, "existing-repo", "my-org", true)
+
+	require.NoError(t, err)
+	require.NotNil(t, repo)
+	assert.False(t, f.userCalled, "App auth must not call the user API")
+	assert.False(t, f.created, "existing repo must not be recreated")
+}
+
+func TestGetOrCreateGitHubRepo_GitHubApp_GHAE_InternalVisibility(t *testing.T) {
+	// With App auth the AE version is detected from the repo response header,
+	// not the user response, so internal visibility must still be selected.
+	f := &fakeGitHub{repoExists: false, repoGetAE: true}
+	client := f.start(t)
+
+	_, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "my-org", true)
+
+	require.NoError(t, err)
+	assert.False(t, f.userCalled, "App auth must not call the user API")
+	assert.True(t, f.created)
+	assert.Equal(t, "internal", f.createdVis, "AE detected from the repo response should yield internal visibility")
+}
+
+// Regression tests for getOrCreateGitHubRepo with PAT auth (pre-existing
+// behaviour). These had no unit coverage before; they guard against regressions
+// from the App-auth refactor.
+
+func TestGetOrCreateGitHubRepo_PAT_ExistingRepo(t *testing.T) {
+	f := &fakeGitHub{repoExists: true, userLogin: "monalisa"}
+	client := f.start(t)
+
+	repo, err := getOrCreateGitHubRepo(context.Background(), client, "existing-repo", "monalisa", false)
+
+	require.NoError(t, err)
+	require.NotNil(t, repo)
+	assert.True(t, f.userCalled, "PAT auth resolves the authenticated user")
+	assert.False(t, f.created, "existing repo must not be recreated")
+}
+
+func TestGetOrCreateGitHubRepo_PAT_CreatesUnderUser(t *testing.T) {
+	f := &fakeGitHub{repoExists: false, userLogin: "monalisa"}
+	client := f.start(t)
+
+	_, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "monalisa", false)
+
+	require.NoError(t, err)
+	assert.True(t, f.created)
+	assert.True(t, f.createdUnderUser, "owner matching the authenticated user must create under the user account")
+	assert.False(t, f.createOrgCalled, "no org should be created when owner is the authenticated user")
+	assert.Equal(t, "public", f.createdVis)
+}
+
+func TestGetOrCreateGitHubRepo_PAT_CreatesUnderOrg(t *testing.T) {
+	f := &fakeGitHub{repoExists: false, userLogin: "monalisa"}
+	client := f.start(t)
+
+	_, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "my-org", false)
+
+	require.NoError(t, err)
+	assert.True(t, f.createOrgCalled, "owner differing from the authenticated user must ensure the org exists")
+	assert.True(t, f.created)
+	assert.False(t, f.createdUnderUser)
+	assert.Equal(t, "my-org", f.createdOrg)
+}
+
+func TestGetOrCreateGitHubRepo_PAT_GHAE_InternalVisibility(t *testing.T) {
+	// AE detected from the user response (pre-existing behaviour) must still
+	// select internal visibility.
+	f := &fakeGitHub{repoExists: false, userLogin: "monalisa", userAE: true}
+	client := f.start(t)
+
+	_, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "monalisa", false)
+
+	require.NoError(t, err)
+	assert.True(t, f.created)
+	assert.Equal(t, "internal", f.createdVis, "AE detected from the user response should yield internal visibility")
+}
+
+func TestGetOrCreateGitHubRepo_PAT_RepoGetError(t *testing.T) {
+	// A non-404 error from the existence check must be surfaced, not swallowed.
+	f := &fakeGitHub{repoGetStatus: http.StatusInternalServerError, userLogin: "monalisa"}
+	client := f.start(t)
+
+	repo, err := getOrCreateGitHubRepo(context.Background(), client, "some-repo", "monalisa", false)
+
+	require.Error(t, err)
+	assert.Nil(t, repo)
+	assert.False(t, f.created, "no repo should be created when the existence check errors")
+}
+
+func TestGetOrCreateGitHubRepo_GitHubApp_UserNeverCalledOnError(t *testing.T) {
+	// Even when repo creation cannot proceed, App auth must never hit /user.
+	f := &fakeGitHub{repoGetStatus: http.StatusInternalServerError}
+	client := f.start(t)
+
+	_, err := getOrCreateGitHubRepo(context.Background(), client, "some-repo", "my-org", true)
+
+	require.Error(t, err)
+	assert.False(t, f.userCalled, "App auth must not call the user API even on error paths")
+}
+
+func TestGetOrCreateGitHubRepo_CreateFailureIsWrapped(t *testing.T) {
+	// A failed repo creation must surface a wrapped error, not a nil repo.
+	f := &fakeGitHub{repoExists: false, createRepoStatus: http.StatusUnprocessableEntity}
+	client := f.start(t)
+
+	repo, err := getOrCreateGitHubRepo(context.Background(), client, "bad-repo", "my-org", true)
+
+	require.Error(t, err)
+	assert.Nil(t, repo)
+	assert.Contains(t, err.Error(), "error creating repository my-org/bad-repo")
+}
+
+func TestGetOrCreateGitHubRepo_PAT_OrgAlreadyExistsFallback(t *testing.T) {
+	// Regression: when org creation fails because the org already exists, the
+	// code falls back to fetching the org and continues.
+	f := &fakeGitHub{
+		repoExists:        false,
+		userLogin:         "monalisa",
+		orgCreateConflict: true,
+		orgGetExists:      true,
+	}
+	client := f.start(t)
+
+	_, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "org-already-exists", false)
+
+	require.NoError(t, err)
+	assert.True(t, f.createOrgCalled, "org creation should be attempted")
+	assert.True(t, f.orgGetCalled, "org should be fetched as a fallback when creation conflicts")
+	assert.True(t, f.created)
+	assert.Equal(t, "org-already-exists", f.createdOrg)
 }
