@@ -31,7 +31,7 @@ const MinBatchSize = 10
 
 type PushOnlyFlags struct {
 	BaseURL, Token, ActionsAdminUser string
-	DisableGitAuth                   bool
+	DisableGitAuth, GitHubApp        bool
 	BatchSize                        int
 }
 
@@ -50,6 +50,7 @@ func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
+	cmd.Flags().BoolVar(&f.GitHubApp, "github-app-auth", false, "Authenticate using a GitHub App installation token (ghs_*). Skips the user API call, which App tokens cannot use; repositories are created under the owner from the destination repo name, which must be an organization the App is installed on (installation tokens cannot create user-owned repositories).")
 	cmd.Flags().IntVar(&f.BatchSize, "batch-size", DefaultBatchSize, "Number of refs to push in each batch (0 = no batching). Use a value like 100 if pushing fails for large repositories.")
 }
 
@@ -67,6 +68,9 @@ func (f *PushOnlyFlags) Validate() Validations {
 	}
 	if f.BatchSize != 0 && f.BatchSize < MinBatchSize {
 		validations = append(validations, fmt.Sprintf("--batch-size must be 0 (no batching) or at least %d", MinBatchSize))
+	}
+	if f.GitHubApp && f.ActionsAdminUser != "" {
+		validations = append(validations, "--github-app-auth cannot be used with --actions-admin-user; App installation tokens have no user/site-admin context and cannot impersonate")
 	}
 	return validations
 }
@@ -178,7 +182,7 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	}
 
 	fmt.Printf("syncing `%s`\n", nwo)
-	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, bareRepoName, ownerName)
+	ghRepo, err := getOrCreateGitHubRepo(ctx, ghClient, bareRepoName, ownerName, flags.GitHubApp)
 	if err != nil {
 		return errors.Wrapf(err, "error creating github repository `%s`", nwo)
 	}
@@ -190,30 +194,13 @@ func PushWithGitImpl(ctx context.Context, flags *PushFlags, repoName string, ghC
 	return nil
 }
 
-func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string) (*github.Repository, error) {
-	// retrieve user associated to authentication credentials provided
-	currentUser, userResponse, err := client.Users.Get(ctx, "")
+func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName, ownerName string, githubApp bool) (*github.Repository, error) {
+	// Determine the org under which to create the repo. With GitHub App auth the
+	// user API is unavailable (App tokens have no user context), so this is
+	// resolved without calling Users.Get.
+	createRepoOrgName, isAE, aeDetermined, err := resolveCreateOrgName(ctx, client, ownerName, githubApp)
 	if err != nil {
-		return nil, errors.Wrap(err, "error retrieving authenticated user")
-	}
-	if currentUser == nil || currentUser.Login == nil {
-		return nil, errors.New("error retrieving authenticated user's login name")
-	}
-	// checking if we talk to GHAE
-	isAE := userResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
-
-	// check if the owner refers to the authenticated user or an organization.
-	var createRepoOrgName string
-	if strings.EqualFold(*currentUser.Login, ownerName) {
-		// we'll create the repo under the authenticated user's account.
-		createRepoOrgName = ""
-	} else {
-		// ensure the org exists.
-		createRepoOrgName = ownerName
-		_, err := getOrCreateGitHubOrg(ctx, client, ownerName, *currentUser.Login)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	// check if repository already exists
@@ -223,6 +210,11 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		fmt.Printf("Existing repo `%s/%s`\n", ownerName, repoName)
 	} else if resp != nil && resp.StatusCode == 404 {
 		// repo not existing yet - try to create
+		// With GitHub App auth the enterprise version wasn't determined from the
+		// user response, so fall back to the repository response header.
+		if !aeDetermined {
+			isAE = resp.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+		}
 		visibility := github.String("public")
 		if isAE {
 			visibility = github.String("internal")
@@ -250,6 +242,42 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		return nil, errors.New("error repository is nil")
 	}
 	return ghRepo, nil
+}
+
+// resolveCreateOrgName decides which org the repo should be created under and,
+// for PAT auth, reports whether the destination is a GitHub AE instance (derived
+// from the authenticated user response). With GitHub App auth (ghs_* tokens) the
+// user API is unavailable, so the repo is always created under the owner from the
+// destination repo name and the AE determination is deferred to the caller
+// (aeDetermined is false).
+func resolveCreateOrgName(ctx context.Context, client *github.Client, ownerName string, githubApp bool) (createOrgName string, isAE bool, aeDetermined bool, err error) {
+	if githubApp {
+		return ownerName, false, false, nil
+	}
+
+	// retrieve user associated to authentication credentials provided
+	currentUser, userResponse, err := client.Users.Get(ctx, "")
+	if err != nil {
+		return "", false, false, errors.Wrap(err, "error retrieving authenticated user (for GitHub App auth pass --github-app-auth)")
+	}
+	if currentUser == nil || currentUser.Login == nil {
+		return "", false, false, errors.New("error retrieving authenticated user's login name")
+	}
+
+	// checking if we talk to GHAE
+	isAE = userResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+
+	// check if the owner refers to the authenticated user or an organization.
+	if strings.EqualFold(*currentUser.Login, ownerName) {
+		// we'll create the repo under the authenticated user's account.
+		return "", isAE, true, nil
+	}
+
+	// ensure the org exists.
+	if _, err := getOrCreateGitHubOrg(ctx, client, ownerName, *currentUser.Login); err != nil {
+		return "", isAE, true, err
+	}
+	return ownerName, isAE, true, nil
 }
 
 func getOrCreateGitHubOrg(ctx context.Context, client *github.Client, orgName, admin string) (*github.Organization, error) {
@@ -290,7 +318,7 @@ func syncWithCachedRepository(ctx context.Context, flags *PushFlags, ghRepo *git
 	var auth transport.AuthMethod
 	if !flags.DisableGitAuth {
 		auth = &http.BasicAuth{
-			Username: "username",
+			Username: "x-access-token",
 			Password: flags.Token,
 		}
 	}

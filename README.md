@@ -56,6 +56,8 @@ When there are machines which have access to both the public internet and the GH
    A path to a file containing a newline separated list of repositories to be synced. Each entry follows the format of `repo-name`.
 - `actions-admin-user` _(optional)_
    The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
+- `github-app-auth` _(optional)_
+   Authenticate using a GitHub App installation token (`ghs_*`) instead of a personal access token. App tokens have no user context, so the user API call is skipped and repositories are created under the owner taken from the destination repo name, which must be an organization the App is installed on (installation tokens cannot create user-owned repositories). See [GitHub App authentication](#github-app-authentication) below.
 - `batch-size` _(optional)_
    Number of refs to push in each batch. Default is 0 (no batching). Use a value like 100 if pushing fails for large repositories with many branches and tags.
 
@@ -116,6 +118,8 @@ When no machine has access to both the public internet and the GHES instance:
    Limit push to specific repositories in the cache directory.
 - `actions-admin-user` _(optional)_
    The name of the Actions admin user, which will be used for updating the chosen action. To use the default user, pass `actions-admin`. If not set, the impersonation is disabled. Note that `site_admin` scope is required in the token for the impersonation to work.
+- `github-app-auth` _(optional)_
+   Authenticate using a GitHub App installation token (`ghs_*`) instead of a personal access token. App tokens have no user context, so the user API call is skipped and repositories are created under the owner taken from the destination repo name, which must be an organization the App is installed on (installation tokens cannot create user-owned repositories). See [GitHub App authentication](#github-app-authentication) below.
 - `batch-size` _(optional)_
    Number of refs to push in each batch. Default is 0 (no batching). Use a value like 100 if pushing fails for large repositories with many branches and tags.
 
@@ -132,3 +136,24 @@ When no machine has access to both the public internet and the GHES instance:
 
 When creating a personal access token include the `repo` and `workflow` scopes. Include the `site_admin` scope (optional) if you want organizations to be created as necessary or you want to use the impersonation logic for the `push` or `sync` commands.
 
+## GitHub App authentication
+
+Instead of a personal access token you can authenticate `push`/`sync` using a GitHub App installation token (`ghs_*`). This avoids long-lived PATs and aligns with enterprise security practices.
+
+1. Create a GitHub App on the destination GHES instance and install it on the target organization(s). The destination owner must be an organization: installation tokens cannot create user-owned repositories (`POST /user/repos` requires user context that App tokens lack), so a user-account installation will not work.
+2. Grant the App these repository permissions: `Administration: Read & write` (to create repositories), `Contents: Read & write` and `Metadata: Read-only`. Add `Workflows: Read & write` if the synced repositories contain workflow files.
+3. Generate an installation access token (`ghs_*`) for the installation.
+4. Pass the token as `--destination-token` together with the `--github-app-auth` flag:
+
+```
+  actions-sync push \
+    --cache-dir "/tmp/cache" \
+    --destination-token "ghs_xxxxxxxxxxxxxxxxxxxx" \
+    --destination-url "https://www.example.com" \
+    --github-app-auth
+```
+
+Notes:
+
+- App installation tokens have no user context, so `--github-app-auth` skips the `GET /user` call and creates repositories under the owner taken from the destination repo name (`owner/repo`) via `POST /orgs/{owner}/repos`. The owner must therefore be an organization the App is installed on; user-owned destinations are not supported because installation tokens cannot create user-owned repositories.
+- Organization auto-creation and user-impersonation (`--actions-admin-user`) rely on user/site-admin context and are not used with App auth.
