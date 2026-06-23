@@ -9,11 +9,13 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/cobra"
 )
 
 type PullOnlyFlags struct {
-	SourceURL string
+	SourceURL, Token string
 }
 
 type PullFlags struct {
@@ -28,6 +30,7 @@ func (f *PullFlags) Init(cmd *cobra.Command) {
 
 func (f *PullOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.SourceURL, "source-url", "https://github.com", "The domain to pull from")
+	cmd.Flags().StringVar(&f.Token, "source-token", "", "Token used to authenticate against the source when pulling private repositories. Works with a personal access token or a GitHub App installation token (ghs_*).")
 }
 
 func (f *PullFlags) Validate() Validations {
@@ -36,7 +39,22 @@ func (f *PullFlags) Validate() Validations {
 
 func (f *PullOnlyFlags) Validate() Validations {
 	var validations Validations
+	if f.Token != "" && !strings.HasPrefix(strings.ToLower(f.SourceURL), "https://") {
+		validations = append(validations, "--source-token requires an https:// --source-url so the token is sent over a secure transport")
+	}
 	return validations
+}
+
+// gitAuthMethod returns a BasicAuth transport for the given token, or nil when
+// no token is set (anonymous access).
+func gitAuthMethod(token string) transport.AuthMethod {
+	if token == "" {
+		return nil
+	}
+	return &http.BasicAuth{
+		Username: "x-access-token",
+		Password: token,
+	}
 }
 
 func Pull(ctx context.Context, flags *PullFlags) error {
@@ -45,19 +63,19 @@ func Pull(ctx context.Context, flags *PullFlags) error {
 		return err
 	}
 
-	return PullManyWithGitImpl(ctx, flags.SourceURL, flags.CacheDir, repoNames, gitImplementation{})
+	return PullManyWithGitImpl(ctx, flags.SourceURL, gitAuthMethod(flags.Token), flags.CacheDir, repoNames, gitImplementation{})
 }
 
-func PullManyWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
+func PullManyWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthMethod, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
 	for _, repoName := range repoNames {
-		if err := PullWithGitImpl(ctx, sourceURL, cacheDir, repoName, gitimpl); err != nil {
+		if err := PullWithGitImpl(ctx, sourceURL, auth, cacheDir, repoName, gitimpl); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName string, gitimpl GitImplementation) error {
+func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthMethod, cacheDir string, repoName string, gitimpl GitImplementation) error {
 	originRepoName, destRepoName, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
@@ -75,6 +93,7 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName s
 		_, err := gitimpl.CloneRepository(dst, &git.CloneOptions{
 			SingleBranch: false,
 			URL:          fmt.Sprintf("%s/%s", sourceURL, originRepoName),
+			Auth:         auth,
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "authentication required") {
@@ -94,9 +113,13 @@ func PullWithGitImpl(ctx context.Context, sourceURL, cacheDir string, repoName s
 		RefSpecs: []config.RefSpec{
 			config.RefSpec("+refs/heads/*:refs/heads/*"),
 		},
+		Auth: auth,
 		Tags: git.AllTags,
 	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
+		if strings.Contains(err.Error(), "authentication required") {
+			return fmt.Errorf("could not fetch %s, the repository may require authentication or does not exist", originRepoName)
+		}
 		return err
 	}
 
