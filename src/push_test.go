@@ -335,6 +335,20 @@ func TestPushOnlyFlags_GitHubAppAuth_Valid(t *testing.T) {
 	}
 }
 
+func TestPushOnlyFlags_GitHubAppAuth_RejectsImpersonation(t *testing.T) {
+	flags := PushOnlyFlags{
+		BaseURL:          "https://example.com",
+		Token:            "ghs_token",
+		GitHubApp:        true,
+		ActionsAdminUser: "actions-admin",
+	}
+
+	validations := flags.Validate()
+
+	require.NotEmpty(t, validations)
+	require.Contains(t, validations.Error().Error(), "--github-app-auth cannot be used with --actions-admin-user")
+}
+
 // Tests for resolveCreateOrgName
 
 func TestResolveCreateOrgName_GitHubApp(t *testing.T) {

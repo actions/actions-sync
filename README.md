@@ -141,7 +141,7 @@ When creating a personal access token include the `repo` and `workflow` scopes. 
 Instead of a personal access token you can authenticate `push`/`sync` using a GitHub App installation token (`ghs_*`). This avoids long-lived PATs and aligns with enterprise security practices.
 
 1. Create a GitHub App on the destination GHES instance and install it on the target organization(s). The destination owner must be an organization: installation tokens cannot create user-owned repositories (`POST /user/repos` requires user context that App tokens lack), so a user-account installation will not work.
-2. Grant the App these repository permissions: `Administration: Read & write` (to create repositories), `Contents: Read & write` and `Metadata: Read & only`. Add `Workflows: Read & write` if the synced repositories contain workflow files.
+2. Grant the App these repository permissions: `Administration: Read & write` (to create repositories), `Contents: Read & write` and `Metadata: Read-only`. Add `Workflows: Read & write` if the synced repositories contain workflow files.
 3. Generate an installation access token (`ghs_*`) for the installation.
 4. Pass the token as `--destination-token` together with the `--github-app-auth` flag:
 

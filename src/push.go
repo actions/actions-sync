@@ -69,6 +69,9 @@ func (f *PushOnlyFlags) Validate() Validations {
 	if f.BatchSize != 0 && f.BatchSize < MinBatchSize {
 		validations = append(validations, fmt.Sprintf("--batch-size must be 0 (no batching) or at least %d", MinBatchSize))
 	}
+	if f.GitHubApp && f.ActionsAdminUser != "" {
+		validations = append(validations, "--github-app-auth cannot be used with --actions-admin-user; App installation tokens have no user/site-admin context and cannot impersonate")
+	}
 	return validations
 }
 
