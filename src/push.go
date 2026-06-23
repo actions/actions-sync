@@ -50,7 +50,7 @@ func (f *PushOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.ActionsAdminUser, "actions-admin-user", "", "A user to impersonate for the push requests. To use the default name, pass 'actions-admin'. Note that the site_admin scope in the token is required for the impersonation to work.")
 	cmd.Flags().StringVar(&f.Token, "destination-token", "", "Token to access API on GHES instance")
 	cmd.Flags().BoolVar(&f.DisableGitAuth, "disable-push-git-auth", false, "Disables git authentication whilst pushing")
-	cmd.Flags().BoolVar(&f.GitHubApp, "github-app-auth", false, "Authenticate using a GitHub App installation token (ghs_*). Skips the user API call, which App tokens cannot use; repositories are created under the owner from the destination repo name.")
+	cmd.Flags().BoolVar(&f.GitHubApp, "github-app-auth", false, "Authenticate using a GitHub App installation token (ghs_*). Skips the user API call, which App tokens cannot use; repositories are created under the owner from the destination repo name, which must be an organization the App is installed on (installation tokens cannot create user-owned repositories).")
 	cmd.Flags().IntVar(&f.BatchSize, "batch-size", DefaultBatchSize, "Number of refs to push in each batch (0 = no batching). Use a value like 100 if pushing fails for large repositories.")
 }
 
