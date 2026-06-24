@@ -158,7 +158,9 @@ func TestPullWithGitImpl_AllBranchesByDefault(t *testing.T) {
 
 func TestPullWithGitImpl_DefaultBranchOnly(t *testing.T) {
 	cacheDir := t.TempDir()
-	repo := &fakePullRepo{}
+	repo := &fakePullRepo{refs: []*plumbing.Reference{
+		plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash),
+	}}
 	impl := &fakePullGitImpl{repo: repo}
 
 	err := PullWithGitImpl(context.Background(), "https://github.com", nil, cacheDir, true, "actions/setup-node", impl)
@@ -167,12 +169,32 @@ func TestPullWithGitImpl_DefaultBranchOnly(t *testing.T) {
 	assert.True(t, impl.cloneSingleBranch, "clone should be limited to the default branch")
 	assert.Equal(t, plumbing.HEAD, impl.cloneRefName, "clone should reference HEAD to pick the default branch")
 	require.Len(t, repo.fetchRefSpecs, 1)
-	assert.Equal(t, config.RefSpec("+refs/tags/*:refs/tags/*"), repo.fetchRefSpecs[0], "fetch should only bring tags when limited to the default branch")
+	assert.Equal(t, config.RefSpec("+refs/heads/main:refs/heads/main"), repo.fetchRefSpecs[0], "fetch should refresh the cached default branch, not pull every branch")
+}
+
+func TestPullWithGitImpl_DefaultBranchOnlyRefreshesCachedBranchOnReSync(t *testing.T) {
+	// Repository already exists in the cache, so the clone is skipped. The
+	// fetch must still update the cached default branch (regression: it
+	// previously only fetched tags, leaving the branch stale).
+	cacheDir := t.TempDir()
+	repo := &fakePullRepo{refs: []*plumbing.Reference{
+		plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash),
+	}}
+	impl := &fakePullGitImpl{repo: repo, exists: true}
+
+	err := PullWithGitImpl(context.Background(), "https://github.com", nil, cacheDir, true, "actions/setup-node", impl)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, impl.cloneCount, "clone should be skipped when the repo already exists")
+	require.Len(t, repo.fetchRefSpecs, 1)
+	assert.Equal(t, config.RefSpec("+refs/heads/main:refs/heads/main"), repo.fetchRefSpecs[0], "the cached default branch must be updated on re-sync")
 }
 
 func TestPullManyWithGitImpl_ThreadsDefaultBranchOnlyToEachRepo(t *testing.T) {
 	cacheDir := t.TempDir()
-	repo := &fakePullRepo{}
+	repo := &fakePullRepo{refs: []*plumbing.Reference{
+		plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash),
+	}}
 	impl := &fakePullGitImpl{repo: repo}
 
 	err := PullManyWithGitImpl(context.Background(), "https://github.com", nil, cacheDir, true, []string{"actions/a", "actions/b"}, impl)
@@ -180,7 +202,7 @@ func TestPullManyWithGitImpl_ThreadsDefaultBranchOnlyToEachRepo(t *testing.T) {
 
 	assert.True(t, impl.cloneSingleBranch, "clone should be limited to the default branch for each repo")
 	require.Len(t, repo.fetchRefSpecs, 1)
-	assert.Equal(t, config.RefSpec("+refs/tags/*:refs/tags/*"), repo.fetchRefSpecs[0])
+	assert.Equal(t, config.RefSpec("+refs/heads/main:refs/heads/main"), repo.fetchRefSpecs[0])
 }
 
 func TestPullWithGitImpl_TagsAlwaysSynced(t *testing.T) {

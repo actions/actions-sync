@@ -112,23 +112,26 @@ func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthM
 		return err
 	}
 
-	// When syncing all branches we mirror every head; when limiting to the
-	// default branch the clone above already brought it in, so we only need to
-	// fetch tags here.
-	refSpec := config.RefSpec("+refs/heads/*:refs/heads/*")
+	// By default we mirror every remote head. When limiting to the default
+	// branch we instead refresh the branches already present locally (the
+	// single branch the clone checked out), so re-syncs keep the default
+	// branch up to date without pulling down every other remote branch. Tags
+	// are always synced via Tags: git.AllTags below.
+	refSpecs := []config.RefSpec{config.RefSpec("+refs/heads/*:refs/heads/*")}
 	fetchDesc := "all branches and tags"
 	if defaultBranchOnly {
-		refSpec = config.RefSpec("+refs/tags/*:refs/tags/*")
-		fetchDesc = "tags"
+		refSpecs, err = localBranchRefSpecs(repo)
+		if err != nil {
+			return err
+		}
+		fetchDesc = "the default branch and tags"
 	}
 
 	fmt.Fprintf(os.Stdout, "fetching %s for %s ...\n", fetchDesc, originRepoName)
 	err = repo.FetchContext(ctx, &git.FetchOptions{
-		RefSpecs: []config.RefSpec{
-			refSpec,
-		},
-		Auth: auth,
-		Tags: git.AllTags,
+		RefSpecs: refSpecs,
+		Auth:     auth,
+		Tags:     git.AllTags,
 	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		if strings.Contains(err.Error(), "authentication required") {
@@ -138,4 +141,29 @@ func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthM
 	}
 
 	return nil
+}
+
+// localBranchRefSpecs builds fetch refspecs that update every branch already
+// present in the local repository. When pulling only the default branch this is
+// the single branch the clone checked out, so re-syncs keep it current without
+// introducing any other remote branches.
+func localBranchRefSpecs(repo GitRepository) ([]config.RefSpec, error) {
+	refs, err := repo.References()
+	if err != nil {
+		return nil, err
+	}
+
+	var refSpecs []config.RefSpec
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		if ref.Name().IsBranch() {
+			name := ref.Name().String()
+			refSpecs = append(refSpecs, config.RefSpec(fmt.Sprintf("+%s:%s", name, name)))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return refSpecs, nil
 }

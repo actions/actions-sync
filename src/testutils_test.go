@@ -144,11 +144,14 @@ type fakePullRepo struct {
 	fetchErr      error
 	fetchRefSpecs []config.RefSpec
 	fetchTags     git.TagMode
+	refs          []*plumbing.Reference
 }
 
 func (r *fakePullRepo) DeleteRemote(string) error                            { return nil }
 func (r *fakePullRepo) CreateRemote(*config.RemoteConfig) (GitRemote, error) { return nil, nil }
-func (r *fakePullRepo) References() (storer.ReferenceIter, error)            { return nil, nil }
+func (r *fakePullRepo) References() (storer.ReferenceIter, error) {
+	return &mockReferenceIter{refs: r.refs}, nil
+}
 
 func (r *fakePullRepo) FetchContext(ctx context.Context, o *git.FetchOptions) error {
 	r.fetchCalled = true
