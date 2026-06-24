@@ -78,6 +78,10 @@ func (m *mockGitRepository) References() (storer.ReferenceIter, error) {
 	return &mockReferenceIter{refs: m.refs, index: 0}, nil
 }
 
+func (m *mockGitRepository) Head() (*plumbing.Reference, error) {
+	return plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash), nil
+}
+
 // mockGitRemote is a GitRemote test double that records the refspecs it was
 // asked to push.
 type mockGitRemote struct {
@@ -107,11 +111,13 @@ func (m *mockGitRemote) Config() *config.RemoteConfig {
 // the way down to git operations. cloneErr, when set, makes CloneRepository
 // fail so error paths can be exercised.
 type fakePullGitImpl struct {
-	exists     bool
-	repo       *fakePullRepo
-	cloneAuth  transport.AuthMethod
-	cloneCount int
-	cloneErr   error
+	exists            bool
+	repo              *fakePullRepo
+	cloneAuth         transport.AuthMethod
+	cloneCount        int
+	cloneErr          error
+	cloneSingleBranch bool
+	cloneRefName      plumbing.ReferenceName
 }
 
 func (f *fakePullGitImpl) NewGitRepository(dir string) (GitRepository, error) {
@@ -120,6 +126,8 @@ func (f *fakePullGitImpl) NewGitRepository(dir string) (GitRepository, error) {
 
 func (f *fakePullGitImpl) CloneRepository(dir string, o *git.CloneOptions) (GitRepository, error) {
 	f.cloneAuth = o.Auth
+	f.cloneSingleBranch = o.SingleBranch
+	f.cloneRefName = o.ReferenceName
 	f.cloneCount++
 	if f.cloneErr != nil {
 		return nil, f.cloneErr
@@ -133,20 +141,48 @@ func (f *fakePullGitImpl) RepositoryExists(dir string) bool {
 
 // fakePullRepo is a GitRepository test double that records the auth used on
 // FetchContext. fetchErr, when set, makes FetchContext fail so error paths can
-// be exercised.
+// be exercised. headBranch sets the branch HEAD resolves to (defaulting to
+// "main"); headErr, when set, makes Head fail. branches lists every branch
+// present locally so tests can assert that default-branch-only fetches only the
+// HEAD branch even when several branches are cached.
 type fakePullRepo struct {
-	fetchAuth   transport.AuthMethod
-	fetchCalled bool
-	fetchErr    error
+	fetchAuth     transport.AuthMethod
+	fetchCalled   bool
+	fetchErr      error
+	fetchRefSpecs []config.RefSpec
+	fetchTags     git.TagMode
+	branches      []string
+	headBranch    string
+	headErr       error
 }
 
 func (r *fakePullRepo) DeleteRemote(string) error                            { return nil }
 func (r *fakePullRepo) CreateRemote(*config.RemoteConfig) (GitRemote, error) { return nil, nil }
-func (r *fakePullRepo) References() (storer.ReferenceIter, error)            { return nil, nil }
+
+func (r *fakePullRepo) References() (storer.ReferenceIter, error) {
+	refs := make([]*plumbing.Reference, 0, len(r.branches))
+	for _, b := range r.branches {
+		refs = append(refs, plumbing.NewHashReference(plumbing.NewBranchReferenceName(b), plumbing.ZeroHash))
+	}
+	return &mockReferenceIter{refs: refs}, nil
+}
+
+func (r *fakePullRepo) Head() (*plumbing.Reference, error) {
+	if r.headErr != nil {
+		return nil, r.headErr
+	}
+	branch := r.headBranch
+	if branch == "" {
+		branch = "main"
+	}
+	return plumbing.NewHashReference(plumbing.NewBranchReferenceName(branch), plumbing.ZeroHash), nil
+}
 
 func (r *fakePullRepo) FetchContext(ctx context.Context, o *git.FetchOptions) error {
 	r.fetchCalled = true
 	r.fetchAuth = o.Auth
+	r.fetchRefSpecs = o.RefSpecs
+	r.fetchTags = o.Tags
 	return r.fetchErr
 }
 
