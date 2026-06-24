@@ -113,17 +113,18 @@ func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthM
 	}
 
 	// By default we mirror every remote head. When limiting to the default
-	// branch we instead refresh the branches already present locally (the
-	// single branch the clone checked out), so re-syncs keep the default
-	// branch up to date without pulling down every other remote branch. Tags
-	// are always synced via Tags: git.AllTags below.
+	// branch we resolve HEAD (the branch the clone checked out) and refresh
+	// only that branch, so re-syncs keep the default branch up to date without
+	// pulling down or updating any other branches. Tags are always synced via
+	// Tags: git.AllTags below.
 	refSpecs := []config.RefSpec{config.RefSpec("+refs/heads/*:refs/heads/*")}
 	fetchDesc := "all branches and tags"
 	if defaultBranchOnly {
-		refSpecs, err = localBranchRefSpecs(repo)
+		refSpec, err := defaultBranchRefSpec(repo)
 		if err != nil {
 			return err
 		}
+		refSpecs = []config.RefSpec{refSpec}
 		fetchDesc = "the default branch and tags"
 	}
 
@@ -143,27 +144,20 @@ func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthM
 	return nil
 }
 
-// localBranchRefSpecs builds fetch refspecs that update every branch already
-// present in the local repository. When pulling only the default branch this is
-// the single branch the clone checked out, so re-syncs keep it current without
-// introducing any other remote branches.
-func localBranchRefSpecs(repo GitRepository) ([]config.RefSpec, error) {
-	refs, err := repo.References()
+// defaultBranchRefSpec resolves the repository's HEAD to the default branch and
+// returns a refspec that updates only that branch. This keeps the cached
+// default branch current on re-syncs while leaving any other branches that may
+// already be in the cache untouched.
+func defaultBranchRefSpec(repo GitRepository) (config.RefSpec, error) {
+	head, err := repo.Head()
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("could not resolve the default branch: %w", err)
 	}
 
-	var refSpecs []config.RefSpec
-	err = refs.ForEach(func(ref *plumbing.Reference) error {
-		if ref.Name().IsBranch() {
-			name := ref.Name().String()
-			refSpecs = append(refSpecs, config.RefSpec(fmt.Sprintf("+%s:%s", name, name)))
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+	name := head.Name()
+	if !name.IsBranch() {
+		return "", fmt.Errorf("HEAD does not point at a branch (%s)", name)
 	}
 
-	return refSpecs, nil
+	return config.RefSpec(fmt.Sprintf("+%s:%s", name, name)), nil
 }

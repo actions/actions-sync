@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 )
 
@@ -21,6 +22,7 @@ type GitRepository interface {
 	CreateRemote(*config.RemoteConfig) (GitRemote, error)
 	FetchContext(context.Context, *git.FetchOptions) error
 	References() (storer.ReferenceIter, error)
+	Head() (*plumbing.Reference, error)
 }
 
 type GitRemote interface {
@@ -70,4 +72,8 @@ func (r *gitRepository) FetchContext(ctx context.Context, o *git.FetchOptions) e
 
 func (r *gitRepository) References() (storer.ReferenceIter, error) {
 	return r.inner.References()
+}
+
+func (r *gitRepository) Head() (*plumbing.Reference, error) {
+	return r.inner.Head()
 }

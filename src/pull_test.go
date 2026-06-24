@@ -157,10 +157,14 @@ func TestPullWithGitImpl_AllBranchesByDefault(t *testing.T) {
 }
 
 func TestPullWithGitImpl_DefaultBranchOnly(t *testing.T) {
+	// The cache has several branches but HEAD points at "trunk"; only that
+	// branch should be fetched, proving the selection is driven by the default
+	// branch rather than just happening to be the sole branch present.
 	cacheDir := t.TempDir()
-	repo := &fakePullRepo{refs: []*plumbing.Reference{
-		plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash),
-	}}
+	repo := &fakePullRepo{
+		headBranch: "trunk",
+		branches:   []string{"trunk", "feature-a", "feature-b"},
+	}
 	impl := &fakePullGitImpl{repo: repo}
 
 	err := PullWithGitImpl(context.Background(), "https://github.com", nil, cacheDir, true, "actions/setup-node", impl)
@@ -168,40 +172,54 @@ func TestPullWithGitImpl_DefaultBranchOnly(t *testing.T) {
 
 	assert.True(t, impl.cloneSingleBranch, "clone should be limited to the default branch")
 	assert.Equal(t, plumbing.HEAD, impl.cloneRefName, "clone should reference HEAD to pick the default branch")
-	require.Len(t, repo.fetchRefSpecs, 1)
-	assert.Equal(t, config.RefSpec("+refs/heads/main:refs/heads/main"), repo.fetchRefSpecs[0], "fetch should refresh the cached default branch, not pull every branch")
+	require.Len(t, repo.fetchRefSpecs, 1, "only the default branch should be fetched")
+	assert.Equal(t, config.RefSpec("+refs/heads/trunk:refs/heads/trunk"), repo.fetchRefSpecs[0], "fetch should refresh only the default branch, not every cached branch")
 }
 
 func TestPullWithGitImpl_DefaultBranchOnlyRefreshesCachedBranchOnReSync(t *testing.T) {
-	// Repository already exists in the cache, so the clone is skipped. The
-	// fetch must still update the cached default branch (regression: it
-	// previously only fetched tags, leaving the branch stale).
+	// Repository already exists in the cache with multiple branches, so the
+	// clone is skipped. The fetch must update the cached default branch
+	// (regression: it previously only fetched tags, leaving the branch stale)
+	// while leaving the other cached branches untouched.
 	cacheDir := t.TempDir()
-	repo := &fakePullRepo{refs: []*plumbing.Reference{
-		plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash),
-	}}
+	repo := &fakePullRepo{
+		headBranch: "main",
+		branches:   []string{"main", "feature-a", "feature-b"},
+	}
 	impl := &fakePullGitImpl{repo: repo, exists: true}
 
 	err := PullWithGitImpl(context.Background(), "https://github.com", nil, cacheDir, true, "actions/setup-node", impl)
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, impl.cloneCount, "clone should be skipped when the repo already exists")
-	require.Len(t, repo.fetchRefSpecs, 1)
+	require.Len(t, repo.fetchRefSpecs, 1, "only the default branch should be refreshed, not every cached branch")
 	assert.Equal(t, config.RefSpec("+refs/heads/main:refs/heads/main"), repo.fetchRefSpecs[0], "the cached default branch must be updated on re-sync")
+}
+
+func TestPullWithGitImpl_DefaultBranchOnlyHeadError(t *testing.T) {
+	cacheDir := t.TempDir()
+	repo := &fakePullRepo{headErr: errors.New("reference not found")}
+	impl := &fakePullGitImpl{repo: repo, exists: true}
+
+	err := PullWithGitImpl(context.Background(), "https://github.com", nil, cacheDir, true, "actions/setup-node", impl)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "default branch")
+	assert.False(t, repo.fetchCalled, "fetch should not run when the default branch cannot be resolved")
 }
 
 func TestPullManyWithGitImpl_ThreadsDefaultBranchOnlyToEachRepo(t *testing.T) {
 	cacheDir := t.TempDir()
-	repo := &fakePullRepo{refs: []*plumbing.Reference{
-		plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash),
-	}}
+	repo := &fakePullRepo{
+		headBranch: "main",
+		branches:   []string{"main", "feature-a", "feature-b"},
+	}
 	impl := &fakePullGitImpl{repo: repo}
 
 	err := PullManyWithGitImpl(context.Background(), "https://github.com", nil, cacheDir, true, []string{"actions/a", "actions/b"}, impl)
 	require.NoError(t, err)
 
 	assert.True(t, impl.cloneSingleBranch, "clone should be limited to the default branch for each repo")
-	require.Len(t, repo.fetchRefSpecs, 1)
+	require.Len(t, repo.fetchRefSpecs, 1, "only the default branch should be fetched")
 	assert.Equal(t, config.RefSpec("+refs/heads/main:refs/heads/main"), repo.fetchRefSpecs[0])
 }
 

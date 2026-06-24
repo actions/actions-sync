@@ -51,7 +51,7 @@ When there are machines which have access to both the public internet and the GH
 - `source-token` _(optional)_
    A token used to authenticate against the source when pulling private repositories. For a personal access token, the `repo` scope (read access to the source repositories) is sufficient. For a GitHub App installation token (`ghs_*`), the installation needs read access to the source repositories' contents; App tokens use installation permissions, not OAuth scopes. Must be used with an `https://` `source-url`.
 - `default-branch-only` _(optional)_
-   Only synchronize the single default branch rather than the default behaviour of syncing all branches. Tags are always synced. On subsequent runs the cached default branch is kept up to date, and no additional branches are pulled. If a repository was previously cached without this flag, the extra branches already in the `cache-dir` are left in place.
+   Only synchronize the single default branch rather than the default behaviour of syncing all branches. Tags are always synced. The default branch is always refreshed, including on subsequent runs into an existing `cache-dir`, but no other branches are pulled. If a repository was previously cached without this flag, the extra branches already in the `cache-dir` are left as-is (they are neither updated nor removed).
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
@@ -94,7 +94,7 @@ When no machine has access to both the public internet and the GHES instance:
 - `source-token` _(optional)_
    A token used to authenticate against the source when pulling private repositories. For a personal access token, the `repo` scope (read access to the source repositories) is sufficient. For a GitHub App installation token (`ghs_*`), the installation needs read access to the source repositories' contents; App tokens use installation permissions, not OAuth scopes. Must be used with an `https://` `source-url`.
 - `default-branch-only` _(optional)_
-   Only synchronize the single default branch rather than the default behaviour of syncing all branches. Tags are always synced. On subsequent runs the cached default branch is kept up to date, and no additional branches are pulled. If a repository was previously cached without this flag, the extra branches already in the `cache-dir` are left in place.
+   Only synchronize the single default branch rather than the default behaviour of syncing all branches. Tags are always synced. The default branch is always refreshed, including on subsequent runs into an existing `cache-dir`, but no other branches are pulled. If a repository was previously cached without this flag, the extra branches already in the `cache-dir` are left as-is (they are neither updated nor removed).
 - `repo-name` _(optional)_
    A single repository to be synced. In the format of `owner/repo`. Optionally if you wish the repository to be named different on your GHES instance you can provide an alias in the format: `upstream_owner/upstream_repo:destination_owner/destination_repo`
 - `repo-name-list` _(optional)_
