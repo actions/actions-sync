@@ -107,11 +107,13 @@ func (m *mockGitRemote) Config() *config.RemoteConfig {
 // the way down to git operations. cloneErr, when set, makes CloneRepository
 // fail so error paths can be exercised.
 type fakePullGitImpl struct {
-	exists     bool
-	repo       *fakePullRepo
-	cloneAuth  transport.AuthMethod
-	cloneCount int
-	cloneErr   error
+	exists            bool
+	repo              *fakePullRepo
+	cloneAuth         transport.AuthMethod
+	cloneCount        int
+	cloneErr          error
+	cloneSingleBranch bool
+	cloneRefName      plumbing.ReferenceName
 }
 
 func (f *fakePullGitImpl) NewGitRepository(dir string) (GitRepository, error) {
@@ -120,6 +122,8 @@ func (f *fakePullGitImpl) NewGitRepository(dir string) (GitRepository, error) {
 
 func (f *fakePullGitImpl) CloneRepository(dir string, o *git.CloneOptions) (GitRepository, error) {
 	f.cloneAuth = o.Auth
+	f.cloneSingleBranch = o.SingleBranch
+	f.cloneRefName = o.ReferenceName
 	f.cloneCount++
 	if f.cloneErr != nil {
 		return nil, f.cloneErr
@@ -135,9 +139,11 @@ func (f *fakePullGitImpl) RepositoryExists(dir string) bool {
 // FetchContext. fetchErr, when set, makes FetchContext fail so error paths can
 // be exercised.
 type fakePullRepo struct {
-	fetchAuth   transport.AuthMethod
-	fetchCalled bool
-	fetchErr    error
+	fetchAuth     transport.AuthMethod
+	fetchCalled   bool
+	fetchErr      error
+	fetchRefSpecs []config.RefSpec
+	fetchTags     git.TagMode
 }
 
 func (r *fakePullRepo) DeleteRemote(string) error                            { return nil }
@@ -147,6 +153,8 @@ func (r *fakePullRepo) References() (storer.ReferenceIter, error)            { r
 func (r *fakePullRepo) FetchContext(ctx context.Context, o *git.FetchOptions) error {
 	r.fetchCalled = true
 	r.fetchAuth = o.Auth
+	r.fetchRefSpecs = o.RefSpecs
+	r.fetchTags = o.Tags
 	return r.fetchErr
 }
 

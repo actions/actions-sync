@@ -9,13 +9,15 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/cobra"
 )
 
 type PullOnlyFlags struct {
-	SourceURL, Token string
+	SourceURL, Token  string
+	DefaultBranchOnly bool
 }
 
 type PullFlags struct {
@@ -31,6 +33,7 @@ func (f *PullFlags) Init(cmd *cobra.Command) {
 func (f *PullOnlyFlags) Init(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.SourceURL, "source-url", "https://github.com", "The domain to pull from")
 	cmd.Flags().StringVar(&f.Token, "source-token", "", "Token used to authenticate against the source when pulling private repositories. Works with a personal access token or a GitHub App installation token (ghs_*).")
+	cmd.Flags().BoolVar(&f.DefaultBranchOnly, "default-branch-only", false, "Only synchronize the default branch rather than all branches")
 }
 
 func (f *PullFlags) Validate() Validations {
@@ -63,19 +66,19 @@ func Pull(ctx context.Context, flags *PullFlags) error {
 		return err
 	}
 
-	return PullManyWithGitImpl(ctx, flags.SourceURL, gitAuthMethod(flags.Token), flags.CacheDir, repoNames, gitImplementation{})
+	return PullManyWithGitImpl(ctx, flags.SourceURL, gitAuthMethod(flags.Token), flags.CacheDir, flags.DefaultBranchOnly, repoNames, gitImplementation{})
 }
 
-func PullManyWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthMethod, cacheDir string, repoNames []string, gitimpl GitImplementation) error {
+func PullManyWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthMethod, cacheDir string, defaultBranchOnly bool, repoNames []string, gitimpl GitImplementation) error {
 	for _, repoName := range repoNames {
-		if err := PullWithGitImpl(ctx, sourceURL, auth, cacheDir, repoName, gitimpl); err != nil {
+		if err := PullWithGitImpl(ctx, sourceURL, auth, cacheDir, defaultBranchOnly, repoName, gitimpl); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthMethod, cacheDir string, repoName string, gitimpl GitImplementation) error {
+func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthMethod, cacheDir string, defaultBranchOnly bool, repoName string, gitimpl GitImplementation) error {
 	originRepoName, destRepoName, err := extractSourceDest(repoName)
 	if err != nil {
 		return err
@@ -91,9 +94,10 @@ func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthM
 	if !gitimpl.RepositoryExists(dst) {
 		fmt.Fprintf(os.Stdout, "pulling %s to %s ...\n", originRepoName, dst)
 		_, err := gitimpl.CloneRepository(dst, &git.CloneOptions{
-			SingleBranch: false,
-			URL:          fmt.Sprintf("%s/%s", sourceURL, originRepoName),
-			Auth:         auth,
+			ReferenceName: plumbing.HEAD,
+			SingleBranch:  defaultBranchOnly,
+			URL:           fmt.Sprintf("%s/%s", sourceURL, originRepoName),
+			Auth:          auth,
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "authentication required") {
@@ -108,10 +112,20 @@ func PullWithGitImpl(ctx context.Context, sourceURL string, auth transport.AuthM
 		return err
 	}
 
-	fmt.Fprintf(os.Stdout, "fetching * refs for %s ...\n", originRepoName)
+	// When syncing all branches we mirror every head; when limiting to the
+	// default branch the clone above already brought it in, so we only need to
+	// fetch tags here.
+	refSpec := config.RefSpec("+refs/heads/*:refs/heads/*")
+	fetchDesc := "all branches and tags"
+	if defaultBranchOnly {
+		refSpec = config.RefSpec("+refs/tags/*:refs/tags/*")
+		fetchDesc = "tags"
+	}
+
+	fmt.Fprintf(os.Stdout, "fetching %s for %s ...\n", fetchDesc, originRepoName)
 	err = repo.FetchContext(ctx, &git.FetchOptions{
 		RefSpecs: []config.RefSpec{
-			config.RefSpec("+refs/heads/*:refs/heads/*"),
+			refSpec,
 		},
 		Auth: auth,
 		Tags: git.AllTags,
