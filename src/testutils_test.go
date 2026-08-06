@@ -210,12 +210,12 @@ func newTestGitHubClient(t *testing.T, serverURL string) *github.Client {
 // repositories are created under the expected owner with the expected visibility).
 type fakeGitHub struct {
 	// config
-	userLogin         string // login returned by GET /user
-	userAE            bool   // set the AE version header on the GET /user response
-	userStatus        int    // override GET /user status (0 => 200)
-	repoExists        bool   // GET /repos/{owner}/{repo} returns 200 vs 404
-	repoGetAE         bool   // set the AE version header on the GET /repos response
-	repoGetStatus     int    // override GET /repos status (0 => derived from repoExists)
+	userLogin             string // login returned by GET /user
+	userDataResidency     bool   // set the data residency version header on the GET /user response
+	userStatus            int    // override GET /user status (0 => 200)
+	repoExists            bool   // GET /repos/{owner}/{repo} returns 200 vs 404
+	repoGetDataResidency  bool   // set the data residency version header on the GET /repos response
+	repoGetStatus         int    // override GET /repos status (0 => derived from repoExists)
 	createRepoStatus  int    // override POST repos status (0 => 201 Created)
 	orgCreateConflict bool   // POST /admin/organizations returns 422 (already exists)
 	orgGetExists      bool   // GET /orgs/{org} returns 200 (used as create fallback)
@@ -242,8 +242,8 @@ func (f *fakeGitHub) handler(t *testing.T) http.HandlerFunc {
 				_, _ = w.Write([]byte(`{"message":"no user context"}`))
 				return
 			}
-			if f.userAE {
-				w.Header().Set(enterpriseVersionHeaderKey, enterpriseAegisVersionHeaderValue)
+			if f.userDataResidency {
+				w.Header().Set(enterpriseVersionHeaderKey, enterpriseDataResidencyVersionHeaderValue)
 			}
 			login := f.userLogin
 			b, _ := json.Marshal(github.User{Login: &login})
@@ -260,8 +260,8 @@ func (f *fakeGitHub) handler(t *testing.T) http.HandlerFunc {
 					status = http.StatusNotFound
 				}
 			}
-			if f.repoGetAE {
-				w.Header().Set(enterpriseVersionHeaderKey, enterpriseAegisVersionHeaderValue)
+			if f.repoGetDataResidency {
+				w.Header().Set(enterpriseVersionHeaderKey, enterpriseDataResidencyVersionHeaderValue)
 			}
 			if status == http.StatusOK {
 				cloneURL := "https://example.com/" + owner + "/" + repo + ".git"

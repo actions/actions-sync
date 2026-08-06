@@ -18,7 +18,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const enterpriseAegisVersionHeaderValue = "GitHub AE"
+const enterpriseDataResidencyVersionHeaderValue = "ghe.com"
 const enterpriseAPIPath = "/api/v3"
 const enterpriseVersionHeaderKey = "X-GitHub-Enterprise-Version"
 const xOAuthScopesHeader = "X-OAuth-Scopes"
@@ -101,13 +101,13 @@ func GetImpersonationToken(ctx context.Context, flags *PushFlags) (string, error
 		return "", errors.New("the current token doesn't have the `site_admin` scope, the impersonation function requires the `site_admin` permission to be able to impersonate")
 	}
 
-	isAE := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+	isDataResidency := rootResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseDataResidencyVersionHeaderValue
 	minimumRepositoryScope := "public_repo"
-	if isAE {
-		// the default repository scope for non-ae instances is 'public_repo'
-		// while it is `repo` for ae.
+	if isDataResidency {
+		// the default repository scope for other instances is 'public_repo'
+		// while it is `repo` for GitHub Enterprise Cloud with data residency.
 		minimumRepositoryScope = "repo"
-		fmt.Printf("running against GitHub AE, changing the repository scope to '%s' ...\n", minimumRepositoryScope)
+		fmt.Printf("running against GitHub Enterprise Cloud with data residency, changing the repository scope to '%s' ...\n", minimumRepositoryScope)
 	}
 
 	impersonationToken, _, err := ghClient.Admin.CreateUserImpersonation(ctx, flags.ActionsAdminUser, &github.ImpersonateUserOptions{Scopes: []string{minimumRepositoryScope, "workflow"}})
@@ -198,7 +198,7 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 	// Determine the org under which to create the repo. With GitHub App auth the
 	// user API is unavailable (App tokens have no user context), so this is
 	// resolved without calling Users.Get.
-	createRepoOrgName, isAE, aeDetermined, err := resolveCreateOrgName(ctx, client, ownerName, githubApp)
+	createRepoOrgName, isDataResidency, dataResidencyDetermined, err := resolveCreateOrgName(ctx, client, ownerName, githubApp)
 	if err != nil {
 		return nil, err
 	}
@@ -212,11 +212,11 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 		// repo not existing yet - try to create
 		// With GitHub App auth the enterprise version wasn't determined from the
 		// user response, so fall back to the repository response header.
-		if !aeDetermined {
-			isAE = resp.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+		if !dataResidencyDetermined {
+			isDataResidency = resp.Header.Get(enterpriseVersionHeaderKey) == enterpriseDataResidencyVersionHeaderValue
 		}
 		visibility := github.String("public")
-		if isAE {
+		if isDataResidency {
 			visibility = github.String("internal")
 		}
 		repo := &github.Repository{
@@ -245,12 +245,12 @@ func getOrCreateGitHubRepo(ctx context.Context, client *github.Client, repoName,
 }
 
 // resolveCreateOrgName decides which org the repo should be created under and,
-// for PAT auth, reports whether the destination is a GitHub AE instance (derived
-// from the authenticated user response). With GitHub App auth (ghs_* tokens) the
-// user API is unavailable, so the repo is always created under the owner from the
-// destination repo name and the AE determination is deferred to the caller
-// (aeDetermined is false).
-func resolveCreateOrgName(ctx context.Context, client *github.Client, ownerName string, githubApp bool) (createOrgName string, isAE bool, aeDetermined bool, err error) {
+// for PAT auth, reports whether the destination is GitHub Enterprise Cloud with
+// data residency (derived from the authenticated user response). With GitHub App
+// auth (ghs_* tokens) the user API is unavailable, so the repo is always created
+// under the owner from the destination repo name and the data residency
+// determination is deferred to the caller (dataResidencyDetermined is false).
+func resolveCreateOrgName(ctx context.Context, client *github.Client, ownerName string, githubApp bool) (createOrgName string, isDataResidency bool, dataResidencyDetermined bool, err error) {
 	if githubApp {
 		return ownerName, false, false, nil
 	}
@@ -264,20 +264,20 @@ func resolveCreateOrgName(ctx context.Context, client *github.Client, ownerName 
 		return "", false, false, errors.New("error retrieving authenticated user's login name")
 	}
 
-	// checking if we talk to GHAE
-	isAE = userResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseAegisVersionHeaderValue
+	// checking if we talk to GitHub Enterprise Cloud with data residency
+	isDataResidency = userResponse.Header.Get(enterpriseVersionHeaderKey) == enterpriseDataResidencyVersionHeaderValue
 
 	// check if the owner refers to the authenticated user or an organization.
 	if strings.EqualFold(*currentUser.Login, ownerName) {
 		// we'll create the repo under the authenticated user's account.
-		return "", isAE, true, nil
+		return "", isDataResidency, true, nil
 	}
 
 	// ensure the org exists.
 	if _, err := getOrCreateGitHubOrg(ctx, client, ownerName, *currentUser.Login); err != nil {
-		return "", isAE, true, err
+		return "", isDataResidency, true, err
 	}
-	return ownerName, isAE, true, nil
+	return ownerName, isDataResidency, true, nil
 }
 
 func getOrCreateGitHubOrg(ctx context.Context, client *github.Client, orgName, admin string) (*github.Organization, error) {
