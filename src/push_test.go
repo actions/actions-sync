@@ -353,12 +353,12 @@ func TestPushOnlyFlags_GitHubAppAuth_RejectsImpersonation(t *testing.T) {
 
 func TestResolveCreateOrgName_GitHubApp(t *testing.T) {
 	// With App auth the user API must never be called, so a nil client is safe.
-	orgName, isAE, aeDetermined, err := resolveCreateOrgName(context.Background(), nil, "my-org", true)
+	orgName, isDataResidency, dataResidencyDetermined, err := resolveCreateOrgName(context.Background(), nil, "my-org", true)
 
 	require.NoError(t, err)
 	assert.Equal(t, "my-org", orgName)
-	assert.False(t, isAE)
-	assert.False(t, aeDetermined, "AE determination is deferred to the caller for App auth")
+	assert.False(t, isDataResidency)
+	assert.False(t, dataResidencyDetermined, "data residency determination is deferred to the caller for App auth")
 }
 
 func TestResolveCreateOrgName_PAT_OwnerIsAuthenticatedUser(t *testing.T) {
@@ -377,11 +377,11 @@ func TestResolveCreateOrgName_PAT_OwnerIsAuthenticatedUser(t *testing.T) {
 
 	client := newTestGitHubClient(t, server.URL)
 
-	orgName, _, aeDetermined, err := resolveCreateOrgName(context.Background(), client, "monalisa", false)
+	orgName, _, dataResidencyDetermined, err := resolveCreateOrgName(context.Background(), client, "monalisa", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, "", orgName, "repo should be created under the authenticated user's account")
-	assert.True(t, aeDetermined)
+	assert.True(t, dataResidencyDetermined)
 }
 
 func TestResolveCreateOrgName_PAT_OwnerIsOrg(t *testing.T) {
@@ -406,18 +406,18 @@ func TestResolveCreateOrgName_PAT_OwnerIsOrg(t *testing.T) {
 
 	client := newTestGitHubClient(t, server.URL)
 
-	orgName, _, aeDetermined, err := resolveCreateOrgName(context.Background(), client, "my-org", false)
+	orgName, _, dataResidencyDetermined, err := resolveCreateOrgName(context.Background(), client, "my-org", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, "my-org", orgName)
-	assert.True(t, aeDetermined)
+	assert.True(t, dataResidencyDetermined)
 	assert.True(t, createOrgCalled, "expected org creation to be attempted")
 }
 
-func TestResolveCreateOrgName_PAT_GitHubAE(t *testing.T) {
+func TestResolveCreateOrgName_PAT_DataResidency(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v3/user" {
-			w.Header().Set(enterpriseVersionHeaderKey, enterpriseAegisVersionHeaderValue)
+			w.Header().Set(enterpriseVersionHeaderKey, enterpriseDataResidencyVersionHeaderValue)
 			user := github.User{Login: github.String("monalisa")}
 			b, _ := json.Marshal(user)
 			_, _ = w.Write(b)
@@ -430,12 +430,12 @@ func TestResolveCreateOrgName_PAT_GitHubAE(t *testing.T) {
 
 	client := newTestGitHubClient(t, server.URL)
 
-	orgName, isAE, aeDetermined, err := resolveCreateOrgName(context.Background(), client, "monalisa", false)
+	orgName, isDataResidency, dataResidencyDetermined, err := resolveCreateOrgName(context.Background(), client, "monalisa", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, "", orgName)
-	assert.True(t, isAE, "AE should be detected from the user response header")
-	assert.True(t, aeDetermined)
+	assert.True(t, isDataResidency, "data residency should be detected from the user response header")
+	assert.True(t, dataResidencyDetermined)
 }
 
 func TestResolveCreateOrgName_PAT_NilLogin(t *testing.T) {
@@ -506,10 +506,10 @@ func TestGetOrCreateGitHubRepo_GitHubApp_ExistingRepo(t *testing.T) {
 	assert.False(t, f.created, "existing repo must not be recreated")
 }
 
-func TestGetOrCreateGitHubRepo_GitHubApp_GHAE_InternalVisibility(t *testing.T) {
-	// With App auth the AE version is detected from the repo response header,
-	// not the user response, so internal visibility must still be selected.
-	f := &fakeGitHub{repoExists: false, repoGetAE: true}
+func TestGetOrCreateGitHubRepo_GitHubApp_DataResidency_InternalVisibility(t *testing.T) {
+	// With App auth the data residency marker is detected from the repo response
+	// header, not the user response, so internal visibility must still be selected.
+	f := &fakeGitHub{repoExists: false, repoGetDataResidency: true}
 	client := f.start(t)
 
 	_, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "my-org", true)
@@ -517,7 +517,7 @@ func TestGetOrCreateGitHubRepo_GitHubApp_GHAE_InternalVisibility(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, f.userCalled, "App auth must not call the user API")
 	assert.True(t, f.created)
-	assert.Equal(t, "internal", f.createdVis, "AE detected from the repo response should yield internal visibility")
+	assert.Equal(t, "internal", f.createdVis, "data residency detected from the repo response should yield internal visibility")
 }
 
 // Regression tests for getOrCreateGitHubRepo with PAT auth (pre-existing
@@ -562,17 +562,17 @@ func TestGetOrCreateGitHubRepo_PAT_CreatesUnderOrg(t *testing.T) {
 	assert.Equal(t, "my-org", f.createdOrg)
 }
 
-func TestGetOrCreateGitHubRepo_PAT_GHAE_InternalVisibility(t *testing.T) {
-	// AE detected from the user response (pre-existing behaviour) must still
-	// select internal visibility.
-	f := &fakeGitHub{repoExists: false, userLogin: "monalisa", userAE: true}
+func TestGetOrCreateGitHubRepo_PAT_DataResidency_InternalVisibility(t *testing.T) {
+	// Data residency detected from the user response must still select internal
+	// visibility.
+	f := &fakeGitHub{repoExists: false, userLogin: "monalisa", userDataResidency: true}
 	client := f.start(t)
 
 	_, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "monalisa", false)
 
 	require.NoError(t, err)
 	assert.True(t, f.created)
-	assert.Equal(t, "internal", f.createdVis, "AE detected from the user response should yield internal visibility")
+	assert.Equal(t, "internal", f.createdVis, "data residency detected from the user response should yield internal visibility")
 }
 
 func TestGetOrCreateGitHubRepo_PAT_RepoGetError(t *testing.T) {
