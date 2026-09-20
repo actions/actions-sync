@@ -3,9 +3,12 @@ package src
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/go-git/go-git/v5/config"
@@ -482,10 +485,11 @@ func TestGetOrCreateGitHubRepo_GitHubApp_CreatesUnderOrg(t *testing.T) {
 	f := &fakeGitHub{repoExists: false}
 	client := f.start(t)
 
-	repo, err := getOrCreateGitHubRepo(context.Background(), client, "my-repo", "my-org", true)
+	repo, created, err := getOrCreateGitHubRepo(context.Background(), client, "my-repo", "my-org", true)
 
 	require.NoError(t, err)
 	require.NotNil(t, repo)
+	assert.True(t, created)
 	assert.Equal(t, "my-repo", repo.GetName())
 	assert.False(t, f.userCalled, "App auth must not call the user API")
 	assert.True(t, f.created, "missing repo should be created")
@@ -498,10 +502,11 @@ func TestGetOrCreateGitHubRepo_GitHubApp_ExistingRepo(t *testing.T) {
 	f := &fakeGitHub{repoExists: true}
 	client := f.start(t)
 
-	repo, err := getOrCreateGitHubRepo(context.Background(), client, "existing-repo", "my-org", true)
+	repo, created, err := getOrCreateGitHubRepo(context.Background(), client, "existing-repo", "my-org", true)
 
 	require.NoError(t, err)
 	require.NotNil(t, repo)
+	assert.False(t, created)
 	assert.False(t, f.userCalled, "App auth must not call the user API")
 	assert.False(t, f.created, "existing repo must not be recreated")
 }
@@ -512,9 +517,10 @@ func TestGetOrCreateGitHubRepo_GitHubApp_GHAE_InternalVisibility(t *testing.T) {
 	f := &fakeGitHub{repoExists: false, repoGetAE: true}
 	client := f.start(t)
 
-	_, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "my-org", true)
+	_, created, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "my-org", true)
 
 	require.NoError(t, err)
+	assert.True(t, created)
 	assert.False(t, f.userCalled, "App auth must not call the user API")
 	assert.True(t, f.created)
 	assert.Equal(t, "internal", f.createdVis, "AE detected from the repo response should yield internal visibility")
@@ -528,10 +534,11 @@ func TestGetOrCreateGitHubRepo_PAT_ExistingRepo(t *testing.T) {
 	f := &fakeGitHub{repoExists: true, userLogin: "monalisa"}
 	client := f.start(t)
 
-	repo, err := getOrCreateGitHubRepo(context.Background(), client, "existing-repo", "monalisa", false)
+	repo, created, err := getOrCreateGitHubRepo(context.Background(), client, "existing-repo", "monalisa", false)
 
 	require.NoError(t, err)
 	require.NotNil(t, repo)
+	assert.False(t, created)
 	assert.True(t, f.userCalled, "PAT auth resolves the authenticated user")
 	assert.False(t, f.created, "existing repo must not be recreated")
 }
@@ -540,9 +547,10 @@ func TestGetOrCreateGitHubRepo_PAT_CreatesUnderUser(t *testing.T) {
 	f := &fakeGitHub{repoExists: false, userLogin: "monalisa"}
 	client := f.start(t)
 
-	_, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "monalisa", false)
+	_, created, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "monalisa", false)
 
 	require.NoError(t, err)
+	assert.True(t, created)
 	assert.True(t, f.created)
 	assert.True(t, f.createdUnderUser, "owner matching the authenticated user must create under the user account")
 	assert.False(t, f.createOrgCalled, "no org should be created when owner is the authenticated user")
@@ -553,9 +561,10 @@ func TestGetOrCreateGitHubRepo_PAT_CreatesUnderOrg(t *testing.T) {
 	f := &fakeGitHub{repoExists: false, userLogin: "monalisa"}
 	client := f.start(t)
 
-	_, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "my-org", false)
+	_, created, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "my-org", false)
 
 	require.NoError(t, err)
+	assert.True(t, created)
 	assert.True(t, f.createOrgCalled, "owner differing from the authenticated user must ensure the org exists")
 	assert.True(t, f.created)
 	assert.False(t, f.createdUnderUser)
@@ -568,9 +577,10 @@ func TestGetOrCreateGitHubRepo_PAT_GHAE_InternalVisibility(t *testing.T) {
 	f := &fakeGitHub{repoExists: false, userLogin: "monalisa", userAE: true}
 	client := f.start(t)
 
-	_, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "monalisa", false)
+	_, created, err := getOrCreateGitHubRepo(context.Background(), client, "ghae-repo", "monalisa", false)
 
 	require.NoError(t, err)
+	assert.True(t, created)
 	assert.True(t, f.created)
 	assert.Equal(t, "internal", f.createdVis, "AE detected from the user response should yield internal visibility")
 }
@@ -580,10 +590,11 @@ func TestGetOrCreateGitHubRepo_PAT_RepoGetError(t *testing.T) {
 	f := &fakeGitHub{repoGetStatus: http.StatusInternalServerError, userLogin: "monalisa"}
 	client := f.start(t)
 
-	repo, err := getOrCreateGitHubRepo(context.Background(), client, "some-repo", "monalisa", false)
+	repo, created, err := getOrCreateGitHubRepo(context.Background(), client, "some-repo", "monalisa", false)
 
 	require.Error(t, err)
 	assert.Nil(t, repo)
+	assert.False(t, created)
 	assert.False(t, f.created, "no repo should be created when the existence check errors")
 }
 
@@ -592,9 +603,10 @@ func TestGetOrCreateGitHubRepo_GitHubApp_UserNeverCalledOnError(t *testing.T) {
 	f := &fakeGitHub{repoGetStatus: http.StatusInternalServerError}
 	client := f.start(t)
 
-	_, err := getOrCreateGitHubRepo(context.Background(), client, "some-repo", "my-org", true)
+	_, created, err := getOrCreateGitHubRepo(context.Background(), client, "some-repo", "my-org", true)
 
 	require.Error(t, err)
+	assert.False(t, created)
 	assert.False(t, f.userCalled, "App auth must not call the user API even on error paths")
 }
 
@@ -603,10 +615,11 @@ func TestGetOrCreateGitHubRepo_CreateFailureIsWrapped(t *testing.T) {
 	f := &fakeGitHub{repoExists: false, createRepoStatus: http.StatusUnprocessableEntity}
 	client := f.start(t)
 
-	repo, err := getOrCreateGitHubRepo(context.Background(), client, "bad-repo", "my-org", true)
+	repo, created, err := getOrCreateGitHubRepo(context.Background(), client, "bad-repo", "my-org", true)
 
 	require.Error(t, err)
 	assert.Nil(t, repo)
+	assert.False(t, created)
 	assert.Contains(t, err.Error(), "error creating repository my-org/bad-repo")
 }
 
@@ -621,11 +634,94 @@ func TestGetOrCreateGitHubRepo_PAT_OrgAlreadyExistsFallback(t *testing.T) {
 	}
 	client := f.start(t)
 
-	_, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "org-already-exists", false)
+	_, created, err := getOrCreateGitHubRepo(context.Background(), client, "new-repo", "org-already-exists", false)
 
 	require.NoError(t, err)
+	assert.True(t, created)
 	assert.True(t, f.createOrgCalled, "org creation should be attempted")
 	assert.True(t, f.orgGetCalled, "org should be fetched as a fallback when creation conflicts")
 	assert.True(t, f.created)
 	assert.Equal(t, "org-already-exists", f.createdOrg)
+}
+
+func TestPushWithGitImpl_SetsSourceDefaultBranchOnNewRepo(t *testing.T) {
+	cacheDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(path.Join(cacheDir, "my-org", "my-repo"), 0o755))
+
+	remote := &mockGitRemote{}
+	repo := &mockGitRepository{
+		headBranch: "trunk",
+		remote:     remote,
+	}
+	gitimpl := &fakePushGitImpl{repo: repo}
+	f := &fakeGitHub{repoExists: false}
+	client := f.start(t)
+	flags := &PushFlags{
+		CommonFlags: CommonFlags{CacheDir: cacheDir},
+		PushOnlyFlags: PushOnlyFlags{
+			Token:     "test-token",
+			GitHubApp: true,
+		},
+	}
+
+	err := PushWithGitImpl(context.Background(), flags, "my-org/my-repo", client, gitimpl)
+
+	require.NoError(t, err)
+	assert.Equal(t, "trunk", f.defaultBranchSet)
+	require.Len(t, remote.pushCalls, 1, "refs must be pushed before the default branch is updated")
+}
+
+func TestPushWithGitImpl_DoesNotChangeExistingRepoDefaultBranch(t *testing.T) {
+	cacheDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(path.Join(cacheDir, "my-org", "existing-repo"), 0o755))
+
+	remote := &mockGitRemote{}
+	repo := &mockGitRepository{
+		headErr: errors.New("HEAD should not be read for an existing destination"),
+		remote:  remote,
+	}
+	gitimpl := &fakePushGitImpl{repo: repo}
+	f := &fakeGitHub{repoExists: true}
+	client := f.start(t)
+	flags := &PushFlags{
+		CommonFlags: CommonFlags{CacheDir: cacheDir},
+		PushOnlyFlags: PushOnlyFlags{
+			Token:     "test-token",
+			GitHubApp: true,
+		},
+	}
+
+	err := PushWithGitImpl(context.Background(), flags, "my-org/existing-repo", client, gitimpl)
+
+	require.NoError(t, err)
+	assert.Empty(t, f.defaultBranchSet)
+	require.Len(t, remote.pushCalls, 1)
+}
+
+func TestPushWithGitImpl_DefaultBranchUpdateFailureIsReturned(t *testing.T) {
+	cacheDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(path.Join(cacheDir, "my-org", "my-repo"), 0o755))
+
+	remote := &mockGitRemote{}
+	repo := &mockGitRepository{
+		headBranch: "trunk",
+		remote:     remote,
+	}
+	gitimpl := &fakePushGitImpl{repo: repo}
+	f := &fakeGitHub{repoExists: false, editRepoStatus: http.StatusUnprocessableEntity}
+	client := f.start(t)
+	flags := &PushFlags{
+		CommonFlags: CommonFlags{CacheDir: cacheDir},
+		PushOnlyFlags: PushOnlyFlags{
+			Token:     "test-token",
+			GitHubApp: true,
+		},
+	}
+
+	err := PushWithGitImpl(context.Background(), flags, "my-org/my-repo", client, gitimpl)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "error setting default branch")
+	assert.Equal(t, "trunk", f.defaultBranchSet)
+	require.Len(t, remote.pushCalls, 1)
 }

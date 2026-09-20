@@ -55,8 +55,12 @@ func (m *mockReferenceIter) Close() {}
 
 // mockGitRepository is a GitRepository test double backed by a fixed set of refs.
 type mockGitRepository struct {
-	refs []*plumbing.Reference
-	err  error
+	refs            []*plumbing.Reference
+	err             error
+	headBranch      string
+	headErr         error
+	remote          GitRemote
+	createRemoteErr error
 }
 
 func (m *mockGitRepository) DeleteRemote(name string) error {
@@ -64,7 +68,7 @@ func (m *mockGitRepository) DeleteRemote(name string) error {
 }
 
 func (m *mockGitRepository) CreateRemote(c *config.RemoteConfig) (GitRemote, error) {
-	return nil, nil
+	return m.remote, m.createRemoteErr
 }
 
 func (m *mockGitRepository) FetchContext(ctx context.Context, o *git.FetchOptions) error {
@@ -79,7 +83,30 @@ func (m *mockGitRepository) References() (storer.ReferenceIter, error) {
 }
 
 func (m *mockGitRepository) Head() (*plumbing.Reference, error) {
-	return plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), plumbing.ZeroHash), nil
+	if m.headErr != nil {
+		return nil, m.headErr
+	}
+	branch := m.headBranch
+	if branch == "" {
+		branch = "main"
+	}
+	return plumbing.NewHashReference(plumbing.NewBranchReferenceName(branch), plumbing.ZeroHash), nil
+}
+
+type fakePushGitImpl struct {
+	repo *mockGitRepository
+}
+
+func (f *fakePushGitImpl) NewGitRepository(string) (GitRepository, error) {
+	return f.repo, nil
+}
+
+func (f *fakePushGitImpl) CloneRepository(string, *git.CloneOptions) (GitRepository, error) {
+	return nil, fmt.Errorf("unexpected clone")
+}
+
+func (f *fakePushGitImpl) RepositoryExists(string) bool {
+	return true
 }
 
 // mockGitRemote is a GitRemote test double that records the refspecs it was
@@ -217,6 +244,7 @@ type fakeGitHub struct {
 	repoGetAE         bool   // set the AE version header on the GET /repos response
 	repoGetStatus     int    // override GET /repos status (0 => derived from repoExists)
 	createRepoStatus  int    // override POST repos status (0 => 201 Created)
+	editRepoStatus    int    // override PATCH repo status (0 => 200 OK)
 	orgCreateConflict bool   // POST /admin/organizations returns 422 (already exists)
 	orgGetExists      bool   // GET /orgs/{org} returns 200 (used as create fallback)
 
@@ -229,6 +257,7 @@ type fakeGitHub struct {
 	createdVis       string
 	createOrgCalled  bool
 	orgGetCalled     bool
+	defaultBranchSet string
 }
 
 func (f *fakeGitHub) handler(t *testing.T) http.HandlerFunc {
@@ -271,6 +300,21 @@ func (f *fakeGitHub) handler(t *testing.T) http.HandlerFunc {
 			}
 			w.WriteHeader(status)
 			_, _ = w.Write([]byte(`{"message":"not found"}`))
+
+		case strings.HasPrefix(r.URL.Path, "/api/v3/repos/") && r.Method == http.MethodPatch:
+			var body struct {
+				DefaultBranch string `json:"default_branch"`
+			}
+			data, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(data, &body)
+			f.defaultBranchSet = body.DefaultBranch
+			if f.editRepoStatus != 0 {
+				w.WriteHeader(f.editRepoStatus)
+				_, _ = w.Write([]byte(`{"message":"failed to update repository"}`))
+				return
+			}
+			b, _ := json.Marshal(github.Repository{DefaultBranch: github.String(body.DefaultBranch)})
+			_, _ = w.Write(b)
 
 		case strings.HasPrefix(r.URL.Path, "/api/v3/orgs/") && strings.HasSuffix(r.URL.Path, "/repos") && r.Method == http.MethodPost:
 			org := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v3/orgs/"), "/repos")

@@ -139,6 +139,16 @@ function test_push() {
   push_github_app "pushing with GitHub App auth"
   assert_dest_sha "org-already-exists/app-repo" "heads/main" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating org-already-exists/app-repo with GitHub App auth"
 
+  # A newly-created destination must inherit the cached source repository's
+  # default branch rather than the GHES instance's configured default.
+  setup_cache "org/default-branch-repo:heads/trunk:e9009d51dd6da2c363d1d14779c53dd27fcb0c52"
+  echo "ref: refs/heads/trunk" >"test/tmp/cache/org/default-branch-repo/.git/HEAD"
+  setup_dest "org/default-branch-repo:heads/trunk:a5984bb887dd2fcdc2892cd906d6f004844d1142"
+
+  push "setting the source default branch on a newly-created destination"
+  assert_dest_sha "org/default-branch-repo" "heads/trunk" "e9009d51dd6da2c363d1d14779c53dd27fcb0c52" "updating the nonstandard default branch"
+  assert_default_branch "org/default-branch-repo" "trunk" "preserving the source default branch"
+
   echo "all push tests passed successfully"
 }
 
@@ -389,6 +399,13 @@ function assert_dest_sha() {
   expected=$3
   actual=$(cat "test/tmp/dest/$nwo/.git/refs/$ref")
   [ "$actual" == "$expected" ] || fail "unexpected dest sha \`$expected != $actual\` - \`$nwo\` \`$ref\` - \`$4\`"
+}
+
+function assert_default_branch() {
+  nwo=$1
+  expected=$2
+  actual=$(curl --silent "http://localhost:$DEST_API_PORT/test/default-branch/$nwo")
+  [ "$actual" == "$expected" ] || fail "unexpected default branch \`$expected != $actual\` - \`$nwo\` - \`$3\`"
 }
 
 function fail() {
