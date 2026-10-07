@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/google/go-github/v43/github"
 	"github.com/gorilla/mux"
@@ -29,6 +30,10 @@ func main() {
 	flag.Parse()
 
 	r := mux.NewRouter()
+	defaultBranches := make(map[string]string)
+	createdRepos := make(map[string]bool)
+	var stateMu sync.RWMutex
+
 	r.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {})
 
 	r.HandleFunc("/api/v3", func(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +181,12 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
+			return
 		}
+
+		stateMu.Lock()
+		createdRepos[orgName+"/"+repoReq.Name] = true
+		stateMu.Unlock()
 
 		cloneURL := gitDaemonURL + path.Join(orgName, repoReq.Name, ".git")
 		repo := github.Repository{Name: &repoReq.Name, CloneURL: &cloneURL}
@@ -206,7 +216,12 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
+			return
 		}
+
+		stateMu.Lock()
+		createdRepos[authenticatedLogin+"/"+repoReq.Name] = true
+		stateMu.Unlock()
 
 		cloneURL := gitDaemonURL + path.Join(authenticatedLogin, repoReq.Name, ".git")
 		repo := github.Repository{Name: &repoReq.Name, CloneURL: &cloneURL}
@@ -221,12 +236,16 @@ func main() {
 		ownerName := mux.Vars(r)["owner"]
 		repoName := mux.Vars(r)["repo"]
 
-		if repoName != existingRepo {
+		stateMu.RLock()
+		repoWasCreated := createdRepos[ownerName+"/"+repoName]
+		stateMu.RUnlock()
+		if repoName != existingRepo && !repoWasCreated {
 			w.WriteHeader(http.StatusNotFound)
 			_, err := w.Write([]byte(fmt.Sprintf("Repo %s not found", html.EscapeString(repoName))))
 			if err != nil {
 				panic(err)
 			}
+			return
 		}
 
 		cloneURL := gitDaemonURL + path.Join(ownerName, repoName, ".git")
@@ -236,7 +255,44 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-	})
+	}).Methods("GET")
+
+	r.HandleFunc("/api/v3/repos/{owner}/{repo}", func(w http.ResponseWriter, r *http.Request) {
+		ownerName := mux.Vars(r)["owner"]
+		repoName := mux.Vars(r)["repo"]
+		var repoReq struct {
+			DefaultBranch string `json:"default_branch,omitempty"`
+		}
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(b, &repoReq); err != nil {
+			panic(err)
+		}
+
+		stateMu.Lock()
+		defaultBranches[ownerName+"/"+repoName] = repoReq.DefaultBranch
+		stateMu.Unlock()
+
+		repo := github.Repository{Name: &repoName, DefaultBranch: &repoReq.DefaultBranch}
+		b, _ = json.Marshal(repo)
+		_, err = w.Write(b)
+		if err != nil {
+			panic(err)
+		}
+	}).Methods("PATCH")
+
+	r.HandleFunc("/test/default-branch/{owner}/{repo}", func(w http.ResponseWriter, r *http.Request) {
+		nwo := mux.Vars(r)["owner"] + "/" + mux.Vars(r)["repo"]
+		stateMu.RLock()
+		defaultBranch := defaultBranches[nwo]
+		stateMu.RUnlock()
+		_, err := w.Write([]byte(defaultBranch))
+		if err != nil {
+			panic(err)
+		}
+	}).Methods("GET")
 
 	err := http.ListenAndServe(":"+port, r)
 	if err != nil {

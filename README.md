@@ -14,6 +14,8 @@ It is designed to work when:
 * The GitHub Enterprise instance is separate from the rest of the internet.
 * The GitHub Enterprise instance is connected to the rest of the internet.
 
+When actions-sync creates a repository on GHES, it sets the destination repository's default branch to match the source repository after pushing the branches. Existing destination repositories keep their configured default branch.
+
 ### Note
 
 Thank you for your interest in this GitHub action, however, right now we are not taking contributions.
